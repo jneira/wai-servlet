@@ -1,22 +1,23 @@
-{-# LANGUAGE MagicHash #-}
-
+{-# LANGUAGE MagicHash,TypeFamilies, DataKinds #-}
 module Lib where
-
 import Java
 
-data {-# CLASS "javax.servlet.Servlet" #-} Servlet = Servlet (Object# Servlet)
+data {-# CLASS "javax.servlet.GenericServlet" #-} GenericServlet =
+  GenericServlet (Object# GenericServlet) 
 data {-# CLASS "javax.servlet.ServletRequest" #-} ServletRequest =
   ServletRequest (Object# ServletRequest)
 data {-# CLASS "javax.servlet.ServletResponse" #-} ServletResponse =
   ServletResponse (Object# ServletResponse)
 
 
-foreign import java unsafe "@interface service" service
-  :: Servlet -> ServletRequest -> ServletResponse -> IO ()
+data {-# CLASS "network.wai.servlet.WAIServlet" #-} WAIServlet =
+  WAIServlet (Object# WAIServlet) deriving Class
 
-module Lib
-    ( someFunc
-    ) where
+type instance Inherits WAIServlet = '[GenericServlet]
 
-someFunc :: IO ()
-someFunc = putStrLn "someFunc"
+service :: ServletResponse -> Java WAIServlet ()
+service = undefined
+
+foreign export java service :: ServletRequest -> ServletResponse ->
+                               Java WAIServlet ()
+
