@@ -64,7 +64,7 @@ instance JavaConverter BS.ByteString JByteArray where
 updateHttpServletResponse :: HttpServletResponse -> Wai.Response ->
                          IO Wai.ResponseReceived
 updateHttpServletResponse servResp waiResp = case waiResp of
-  (WaiIn.ResponseFile status headers filePath filePart) -> undefined
+  (WaiIn.ResponseFile status headers filePath filePart) -> error "ResponseFile"
   (WaiIn.ResponseBuilder status headers builder) -> do
     withServResp $ do
       setStatusAndHeaders status headers
@@ -77,7 +77,7 @@ updateHttpServletResponse servResp waiResp = case waiResp of
     when (hasBody status) $ 
       body (sendChunk servResp) (flush servResp)
     return WaiIn.ResponseReceived
-  (WaiIn.ResponseRaw rawStream response) -> undefined
+  (WaiIn.ResponseRaw rawStream response) -> error "ResponseRaw"
   where withServResp =  javaWith servResp
     
 
