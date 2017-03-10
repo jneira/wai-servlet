@@ -28,17 +28,19 @@ data {-# CLASS "javax.servlet.ServletOutputStream" #-} ServletOutputStream =
 
 type instance Inherits ServletOutputStream = '[OutputStream]
 
-foreign import java unsafe setStatus ::  Int -> Java HttpServletResponse ()
-foreign import java unsafe setHeader ::  String -> String ->
-                                         Java HttpServletResponse ()
-foreign import java unsafe getOutputStream :: Extends a ServletResponse  =>
-                                              Java a ServletOutputStream
-foreign import java unsafe flushBuffer :: Extends a ServletResponse => Java a ()
+foreign import java unsafe "@interface" setStatus ::
+   Int -> Java HttpServletResponse ()
+foreign import java unsafe "@interface" setHeader ::
+   String -> String ->  Java HttpServletResponse ()
+foreign import java unsafe "@interface" getOutputStream ::
+   Extends a ServletResponse  => Java a ServletOutputStream
+foreign import java unsafe "@interface" flushBuffer ::
+   Extends a ServletResponse => Java a ()
 
-foreign import java unsafe write :: Extends a OutputStream  => Int -> Java a () 
-foreign import java unsafe "write" writeByteArray :: Extends a OutputStream  =>
-                                                     JByteArray -> Int -> Int  ->
-                                                     Java a () 
+foreign import java unsafe write ::
+   Extends a OutputStream  => Int -> Java a () 
+foreign import java unsafe "write" writeByteArray ::
+   Extends a OutputStream  => JByteArray -> Int -> Int  -> Java a () 
 
 setStatusAndHeaders :: HTTP.Status -> [HTTP.Header] ->
                        Java HttpServletResponse ()  
@@ -62,9 +64,10 @@ instance JavaConverter BS.ByteString JByteArray where
   fromJava = BS.pack . map fromIntegral . fromJava
 
 updateHttpServletResponse :: HttpServletResponse -> Wai.Response ->
-                         IO Wai.ResponseReceived
+                             IO Wai.ResponseReceived
 updateHttpServletResponse servResp waiResp = case waiResp of
-  (WaiIn.ResponseFile status headers filePath filePart) -> error "ResponseFile"
+  (WaiIn.ResponseFile status headers filePath filePart) ->
+    error "ResponseFile"
   (WaiIn.ResponseBuilder status headers builder) -> do
     withServResp $ do
       setStatusAndHeaders status headers
@@ -77,7 +80,8 @@ updateHttpServletResponse servResp waiResp = case waiResp of
     when (hasBody status) $ 
       body (sendChunk servResp) (flush servResp)
     return WaiIn.ResponseReceived
-  (WaiIn.ResponseRaw rawStream response) -> error "ResponseRaw"
+  (WaiIn.ResponseRaw rawStream response) ->
+    error "ResponseRaw"
   where withServResp =  javaWith servResp
     
 
