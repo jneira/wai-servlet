@@ -15,7 +15,7 @@ import Java
 data {-# CLASS "javax.servlet.ServletResponse" #-} ServletResponse =
   ServletResponse (Object# ServletResponse) deriving Class
 
-data {-# CLASS "javax.servlet.HttpServletResponse" #-} HttpServletResponse =
+data {-# CLASS "javax.servlet.http.HttpServletResponse" #-} HttpServletResponse =
   HttpServletResponse (Object# HttpServletResponse) deriving Class
 
 type instance Inherits HttpServletResponse = '[ServletResponse]
