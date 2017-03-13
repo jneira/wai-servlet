@@ -28,13 +28,13 @@ data {-# CLASS "javax.servlet.ServletOutputStream" #-} ServletOutputStream =
 
 type instance Inherits ServletOutputStream = '[OutputStream]
 
-foreign import java unsafe "@interface" setStatus ::
+foreign import java unsafe "@interface setStatus" setStatus ::
    Int -> Java HttpServletResponse ()
-foreign import java unsafe "@interface" setHeader ::
+foreign import java unsafe "@interface setHeader" setHeader ::
    String -> String ->  Java HttpServletResponse ()
-foreign import java unsafe "@interface" getOutputStream ::
+foreign import java unsafe "@interface getOutputStream" getOutputStream ::
    Extends a ServletResponse  => Java a ServletOutputStream
-foreign import java unsafe "@interface" flushBuffer ::
+foreign import java unsafe "@interface flushBuffer" flushBuffer ::
    Extends a ServletResponse => Java a ()
 
 foreign import java unsafe write ::

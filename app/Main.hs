@@ -17,6 +17,8 @@ application :: Request -> (Response -> IO ResponseReceived) ->
 application _ respond = respond $
    responseLBS status200 [("Content-Type", "text/plain")] "Hello World"
 
+application2 :: MVar Integer -> Request -> (Response -> IO ResponseReceived) ->
+               IO ResponseReceived
 application2 countRef _ respond = do
     modifyMVar countRef $ \count -> do
         let count' = count + 1
@@ -28,6 +30,8 @@ application2 countRef _ respond = do
             msg
         return (count', responseReceived)
 
+application3 :: Request -> (Response -> IO ResponseReceived) ->
+               IO ResponseReceived
 application3 _ respond = respond $
   responseStream status200 [("Content-Type", "text/plain")]
     $ \send flush -> do
@@ -36,9 +40,17 @@ application3 _ respond = respond $
         threadDelay 1000000
         send $ fromByteString "All done!\n"
 
-service :: WaiServletApplication
+service :: DefaultWaiServletApplication
 service = makeServiceMethod application
 
-foreign export java service :: WaiServletApplication
+getCounter :: Integer -> Java a (MVar Integer)
+getCounter init = do
+  count <- io $ newMVar init
+  return count
+
+service' :: DefaultWaiServletApplication
+service' = makeServiceMethod (application2 $ pureJava $ getCounter 0)
+
+foreign export java "service" service' :: DefaultWaiServletApplication
 
 main = undefined --run 3000 application
