@@ -43,13 +43,11 @@ application3 _ respond = respond $
 service :: DefaultWaiServletApplication
 service = makeServiceMethod application
 
-getCounter :: Integer -> Java a (MVar Integer)
-getCounter init = do
-  count <- io $ newMVar init
-  return count
-
 service' :: DefaultWaiServletApplication
-service' = makeServiceMethod (application2 $ pureJava $ getCounter 0)
+service' = makeServiceMethod application2'
+  where application2' req respond = do
+          cnt <- newMVar 0
+          application2 cnt req respond
 
 foreign export java "service" service' :: DefaultWaiServletApplication
 
