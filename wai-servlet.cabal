@@ -24,7 +24,8 @@ library
                      , case-insensitive
   hs-source-dirs:      src      
   default-language:    Haskell2010
-  --java-sources:        java/servlet-api-2.5.jar
+  --java-sources:        java/servlet-api-2.5.jar,java/Utils.java
+  java-sources:        java/Utils.java
   maven-depends:       javax.servlet:servlet-api:2.5
   
 executable wai-servlet-test
