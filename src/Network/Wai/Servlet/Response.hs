@@ -4,7 +4,10 @@ module Network.Wai.Servlet.Response where
 import Control.Monad (forM_,when)
 import qualified Blaze.ByteString.Builder as Blaze
 import qualified Data.CaseInsensitive as CI (original)
-import qualified Data.ByteString.Lazy as BS
+import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Lazy.Internal as BSLInt
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Internal as BSInt
 import qualified Data.ByteString.Char8 as BSChar (unpack)
 import Data.Word
 import qualified Network.Wai as Wai
@@ -36,6 +39,8 @@ foreign import java unsafe "@interface getOutputStream" getOutputStream ::
    Extends a ServletResponse  => Java a ServletOutputStream
 foreign import java unsafe "@interface flushBuffer" flushBuffer ::
    Extends a ServletResponse => Java a ()
+foreign import java unsafe "@interface setBufferSize" setBufferSize ::
+   Extends a ServletResponse => Int -> Java a ()
 
 foreign import java unsafe write ::
    Extends a OutputStream  => Int -> Java a () 
@@ -50,19 +55,24 @@ setStatusAndHeaders status headers = do
     setHeader (BSChar.unpack $ CI.original  name)
               (BSChar.unpack value)
 
-writeByteString :: Extends a ServletResponse  => BS.ByteString  -> Java a ()
+writeLazyByteString' :: Extends a ServletResponse  => BSL.ByteString  -> Java a ()
+writeLazyByteString' BSLInt.Empty = return ()
+writeLazyByteString' (BSLInt.Chunk c cs) =
+  writeStrictByteString c >> writeLazyByteString' cs
+
+writeStrictByteString :: Extends a ServletResponse  => BS.ByteString  -> Java a ()
+writeStrictByteString bss = return ()
+  where (ptr,offset,length) = BSInt.toForeignPtr bss 
+
+writeByteString :: Extends a ServletResponse  => BSL.ByteString  -> Java a ()
 writeByteString bs  =
   case unc of
     Nothing -> return ()
     Just (h,t) -> do
       getOutputStream >- write (fromIntegral h)
       writeByteString t
-  where unc = BS.uncons bs
+  where unc = BSL.uncons bs
   
-instance JavaConverter BS.ByteString JByteArray where
-  toJava = toJava . map fromIntegral . BS.unpack
-  fromJava = BS.pack . map fromIntegral . fromJava
-
 updateHttpServletResponse :: HttpServletResponse -> Wai.Response ->
                              IO Wai.ResponseReceived
 updateHttpServletResponse servResp waiResp = case waiResp of
@@ -71,6 +81,7 @@ updateHttpServletResponse servResp waiResp = case waiResp of
   (WaiIn.ResponseBuilder status headers builder) -> do
     withServResp $ do
       setStatusAndHeaders status headers
+      setBufferSize BSLInt.defaultChunkSize
       when (hasBody status) $ 
            writeByteString $ Blaze.toLazyByteString builder
     return WaiIn.ResponseReceived
