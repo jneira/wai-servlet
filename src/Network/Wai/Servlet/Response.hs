@@ -111,5 +111,4 @@ toLazyByteString buffSize builder =
   Blaze.toLazyByteStringWith buffSize 0 buffSize builder BSL.empty
 
 flush :: Extends a ServletResponse => a -> IO ()
-flush resp = do
-  javaWith resp flushBuffer
+flush resp = javaWith resp flushBuffer
