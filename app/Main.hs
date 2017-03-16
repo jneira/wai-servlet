@@ -46,14 +46,10 @@ application3 _ respond = respond $
 service :: DefaultWaiServletApplication
 service = makeServiceMethod application
 
-application2' :: IO Application
-application2' = do
-  cnt <- newMVar 0
-  return $ application2 cnt
-
-service' :: DefaultWaiServletApplication
-service' = makeServiceMethod $ io application2'
-
+service' = makeServiceMethod application2'
+  where application2' req respond = do
+          cnt <- newMVar 0
+          application2 cnt req respond
 
 foreign export java "service" service' :: DefaultWaiServletApplication
 
