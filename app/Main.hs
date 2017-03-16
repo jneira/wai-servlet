@@ -12,13 +12,11 @@ import Data.Monoid                        ((<>))
 import System.IO.Unsafe
 
 
-application :: Request -> (Response -> IO ResponseReceived) ->
-               IO ResponseReceived
+application :: Application
 application _ respond = respond $
    responseLBS status200 [("Content-Type", "text/plain")] "Hello World"
 
-application' :: MVar Integer -> Request -> (Response -> IO ResponseReceived) ->
-                IO ResponseReceived
+application' :: MVar Integer -> Application
 application' countRef _ respond = do
     modifyMVar countRef $ \count -> do
         let count' = count + 1
@@ -30,11 +28,10 @@ application' countRef _ respond = do
             msg
         return (count', responseReceived)
 
-foreign import java unsafe "@static Thread.sleep"
+foreign import java unsafe "@static java.lang.Thread.sleep"
   threadDelay :: Int64 -> IO ()
 
-application'' :: Request -> (Response -> IO ResponseReceived) ->
-               IO ResponseReceived
+application'' :: Application
 application'' _ respond = respond $
   responseStream status200 [("Content-Type", "text/plain")]
     $ \send flush -> do
