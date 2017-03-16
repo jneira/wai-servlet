@@ -9,7 +9,7 @@ import Blaze.ByteString.Builder.Char.Utf8 (fromShow)
 --import Control.Concurrent                 (threadDelay)
 import Control.Concurrent.MVar
 import Data.Monoid                        ((<>))
-
+import System.IO.Unsafe
 
 
 application :: Request -> (Response -> IO ResponseReceived) ->
@@ -46,10 +46,8 @@ application3 _ respond = respond $
 service :: DefaultWaiServletApplication
 service = makeServiceMethod application
 
-service' = makeServiceMethod application2'
-  where application2' req respond = do
-          cnt <- newMVar 0
-          application2 cnt req respond
+service' = makeServiceMethod $ application2'
+  where application2'= application2 $ unsafePerformIO $ newMVar 0
 
 foreign export java "service" service' :: DefaultWaiServletApplication
 
