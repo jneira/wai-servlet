@@ -6,7 +6,7 @@ import Network.Wai.Servlet
 --import Network.Wai.Handler.Warp (run)
 import Blaze.ByteString.Builder           (fromByteString)
 import Blaze.ByteString.Builder.Char.Utf8 (fromShow)
-import Control.Concurrent                 (threadDelay)
+--import Control.Concurrent                 (threadDelay)
 import Control.Concurrent.MVar
 import Data.Monoid                        ((<>))
 
@@ -18,7 +18,7 @@ application _ respond = respond $
    responseLBS status200 [("Content-Type", "text/plain")] "Hello World"
 
 application2 :: MVar Integer -> Request -> (Response -> IO ResponseReceived) ->
-               IO ResponseReceived
+                IO ResponseReceived
 application2 countRef _ respond = do
     modifyMVar countRef $ \count -> do
         let count' = count + 1
@@ -29,6 +29,9 @@ application2 countRef _ respond = do
             [("Content-Type", "text/plain")]
             msg
         return (count', responseReceived)
+
+foreign import java unsafe "@static Thread.sleep"
+  threadDelay :: Int64 -> IO ()
 
 application3 :: Request -> (Response -> IO ResponseReceived) ->
                IO ResponseReceived
@@ -43,12 +46,16 @@ application3 _ respond = respond $
 service :: DefaultWaiServletApplication
 service = makeServiceMethod application
 
+application2' :: IO Application
+application2' = do
+  cnt <- newMVar 0
+  return $ application2 cnt
+
 service' :: DefaultWaiServletApplication
-service' = makeServiceMethod application2'
-  where application2' req respond = do
-          cnt <- newMVar 0
-          application2 cnt req respond
+service' = makeServiceMethod $ io application2'
+
 
 foreign export java "service" service' :: DefaultWaiServletApplication
 
 main = undefined --run 3000 application
+
