@@ -17,9 +17,9 @@ application :: Request -> (Response -> IO ResponseReceived) ->
 application _ respond = respond $
    responseLBS status200 [("Content-Type", "text/plain")] "Hello World"
 
-application2 :: MVar Integer -> Request -> (Response -> IO ResponseReceived) ->
+application' :: MVar Integer -> Request -> (Response -> IO ResponseReceived) ->
                 IO ResponseReceived
-application2 countRef _ respond = do
+application' countRef _ respond = do
     modifyMVar countRef $ \count -> do
         let count' = count + 1
             msg = fromByteString "You are visitor number: " <>
@@ -33,9 +33,9 @@ application2 countRef _ respond = do
 foreign import java unsafe "@static Thread.sleep"
   threadDelay :: Int64 -> IO ()
 
-application3 :: Request -> (Response -> IO ResponseReceived) ->
+application'' :: Request -> (Response -> IO ResponseReceived) ->
                IO ResponseReceived
-application3 _ respond = respond $
+application'' _ respond = respond $
   responseStream status200 [("Content-Type", "text/plain")]
     $ \send flush -> do
         send $ fromByteString "Starting the response...\n"
@@ -46,8 +46,8 @@ application3 _ respond = respond $
 service :: DefaultWaiServletApplication
 service = makeServiceMethod application
 
-service' = makeServiceMethod $ application2'
-  where application2'= application2 $ unsafePerformIO $ newMVar 0
+service' = makeServiceMethod $ app
+  where app= application' $ unsafePerformIO $ newMVar 0
 
 foreign export java "service" service' :: DefaultWaiServletApplication
 
