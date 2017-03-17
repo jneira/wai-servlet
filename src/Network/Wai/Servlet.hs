@@ -15,7 +15,7 @@ type GenericServletApplication = ServletApplication GenericServlet
 makeServiceMethod :: Extends a GenericServlet =>
                      Wai.Application -> ServletApplication a
 makeServiceMethod  waiApp servReq servResp =
-  do _ <- io $ waiApp waiReq waiRespond
+  do io $ waiApp waiReq waiRespond
      return ()
   where waiReq = makeWaiRequest $ unsafeCast servReq
         waiRespond = updateHttpServletResponse $ unsafeCast servResp  
