@@ -1,5 +1,5 @@
 {-# LANGUAGE MagicHash,TypeFamilies,DataKinds,FlexibleContexts,
-             OverloadedStrings,MultiParamTypeClasses #-}
+             MultiParamTypeClasses,TypeOperators #-}
 module Network.Wai.Servlet.Response where
 import Control.Monad (forM_,when)
 import qualified Blaze.ByteString.Builder as Blaze
@@ -16,39 +16,64 @@ import qualified Network.Wai as Wai
 import qualified Network.Wai.Internal as WaiIn
 import qualified Network.HTTP.Types as HTTP
 import Java
+import qualified Java.IO as JIO
 
-data {-# CLASS "javax.servlet.ServletResponse" #-} ServletResponse =
-  ServletResponse (Object# ServletResponse) deriving Class
+data {-# CLASS "javax.servlet.ServletResponse" #-}
+  ServletResponse = ServletResponse (Object# ServletResponse)
+  deriving Class
 
-data {-# CLASS "javax.servlet.http.HttpServletResponse" #-} HttpServletResponse =
-  HttpServletResponse (Object# HttpServletResponse) deriving Class
+data {-# CLASS "javax.servlet.http.HttpServletResponse" #-}
+  HttpServletResponse = HttpServletResponse (Object# HttpServletResponse)
+  deriving Class
 
 type instance Inherits HttpServletResponse = '[ServletResponse]
 
-data {-# CLASS "java.io.OutputStream" #-} OutputStream =
-  OutputStream (Object# OutputStream) deriving Class
+data {-# CLASS "javax.servlet.ServletOutputStream" #-}
+  ServletOutputStream = ServletOutputStream (Object# ServletOutputStream)
+  deriving Class
 
-data {-# CLASS "javax.servlet.ServletOutputStream" #-} ServletOutputStream =
-  ServletOutputStream (Object# ServletOutputStream) deriving Class
-
-type instance Inherits ServletOutputStream = '[OutputStream]
+type instance Inherits ServletOutputStream = '[JIO.OutputStream]
 
 foreign import java unsafe "@interface setStatus" setStatus ::
    Int -> Java HttpServletResponse ()
 foreign import java unsafe "@interface setHeader" setHeader ::
-   String -> String ->  Java HttpServletResponse ()
+   String -> String -> Java HttpServletResponse ()
 foreign import java unsafe "@interface getOutputStream" getOutputStream ::
-   Extends a ServletResponse  => Java a ServletOutputStream
+   (a <: ServletResponse) => Java a ServletOutputStream
 foreign import java unsafe "@interface flushBuffer" flushBuffer ::
-   Extends a ServletResponse => Java a ()
+   (a <: ServletResponse) => Java a ()
 foreign import java unsafe "@interface getBufferSize" getBufferSize ::
-   Extends a ServletResponse => Java a Int
+   (a <: ServletResponse) => Java a Int
 
-foreign import java unsafe write ::
-   Extends a OutputStream  => Int -> Java a () 
-foreign import java unsafe "write" writeByteArray ::
-   Extends a OutputStream  => JByteArray -> Java a () 
+updateHttpServletResponse :: HttpServletResponse -> Wai.Response ->
+                             IO Wai.ResponseReceived
+updateHttpServletResponse servResp waiResp = case waiResp of
 
+  (WaiIn.ResponseBuilder status headers builder) -> do
+    withServResp $ do
+      setStatusAndHeaders status headers
+      buffSize <- getBufferSize
+      when (hasBody status) $ 
+           writeLazyByteString $ toLazyByteString buffSize builder
+    return WaiIn.ResponseReceived
+
+  (WaiIn.ResponseStream status headers body) -> do
+    withServResp $ do
+        setStatusAndHeaders status headers
+    when (hasBody status) $ 
+      body (sendChunk servResp) (flush servResp)
+    return WaiIn.ResponseReceived
+
+  respFile@(WaiIn.ResponseFile status headers filePath filePart) -> do
+    withServResp $ do
+      setStatusAndHeaders status headers
+      serveFile respFile 
+    return WaiIn.ResponseReceived
+                                             
+  (WaiIn.ResponseRaw rawStream response) ->
+    error "ResponseRaw not supported by wai-servlet"
+  where withServResp =  javaWith servResp
+    
 setStatusAndHeaders :: HTTP.Status -> [HTTP.Header] ->
                        Java HttpServletResponse ()  
 setStatusAndHeaders status headers = do
@@ -57,7 +82,15 @@ setStatusAndHeaders status headers = do
     setHeader (BSChar.unpack $ CI.original  name)
               (BSChar.unpack value)
 
-writeLazyByteString :: Extends a ServletResponse  => BSL.ByteString  -> Java a ()
+hasBody :: HTTP.Status -> Bool
+hasBody s = sc /= 204 && sc /= 304 && sc >= 200
+  where sc = HTTP.statusCode s
+
+toLazyByteString :: Int -> Blaze.Builder -> BSL.ByteString
+toLazyByteString buffSize builder =
+  Blaze.toLazyByteStringWith buffSize 0 buffSize builder BSL.empty
+
+writeLazyByteString :: (a <: ServletResponse) => BSL.ByteString  -> Java a ()
 writeLazyByteString BSLInt.Empty = return ()
 writeLazyByteString (BSLInt.Chunk c cs) =
   writeStrictByteString c >> writeLazyByteString cs
@@ -65,50 +98,23 @@ writeLazyByteString (BSLInt.Chunk c cs) =
 foreign import java unsafe "@static network.wai.servlet.Utils.toByteArray"
    toByteArray :: Ptr Word8 -> Int -> Int -> JByteArray
 
-writeStrictByteString :: Extends a ServletResponse  => BS.ByteString  -> Java a ()
+writeStrictByteString :: (a <: ServletResponse) =>
+                         BS.ByteString  -> Java a ()
 writeStrictByteString bss = do
   bytes <- io getByteArray
-  getOutputStream >- writeByteArray bytes
+  getOutputStream >- JIO.writeArrayOutputStream bytes
   where (fptr,offset,length) = BSInt.toForeignPtr bss
         getByteArray = withForeignPtr fptr $ \ ptr -> 
                          return $ toByteArray ptr offset length
 
-updateHttpServletResponse :: HttpServletResponse -> Wai.Response ->
-                             IO Wai.ResponseReceived
-updateHttpServletResponse servResp waiResp = case waiResp of
-  (WaiIn.ResponseFile status headers filePath filePart) ->
-    error "ResponseFile not implemented"
-  (WaiIn.ResponseBuilder status headers builder) -> do
-    withServResp $ do
-      setStatusAndHeaders status headers
-      buffSize <- getBufferSize
-      when (hasBody status) $ 
-           writeLazyByteString $ toLazyByteString buffSize builder
-    return WaiIn.ResponseReceived
-  (WaiIn.ResponseStream status headers body) -> do
-    withServResp $ do
-        setStatusAndHeaders status headers
-    when (hasBody status) $ 
-      body (sendChunk servResp) (flush servResp)
-    return WaiIn.ResponseReceived
-  (WaiIn.ResponseRaw rawStream response) ->
-    error "ResponseRaw not supported by wai-servlet"
-  where withServResp =  javaWith servResp
-    
-
-hasBody :: HTTP.Status -> Bool
-hasBody s = sc /= 204 && sc /= 304 && sc >= 200
-  where sc = HTTP.statusCode s
-
-sendChunk :: Extends a ServletResponse => a -> Blaze.Builder -> IO ()
+sendChunk :: (a <: ServletResponse) => a -> Blaze.Builder -> IO ()
 sendChunk resp builder = javaWith resp $ do
   buffSize <- getBufferSize
   let bs = toLazyByteString buffSize builder
   writeLazyByteString bs
 
-toLazyByteString :: Int -> Blaze.Builder -> BSL.ByteString
-toLazyByteString buffSize builder =
-  Blaze.toLazyByteStringWith buffSize 0 buffSize builder BSL.empty
-
-flush :: Extends a ServletResponse => a -> IO ()
+flush :: (a <: ServletResponse) => a -> IO ()
 flush resp = javaWith resp flushBuffer
+
+serveFile :: (a <: ServletResponse) => WaiIn.Response -> Java a ()
+serveFile = undefined
