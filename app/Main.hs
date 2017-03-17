@@ -37,16 +37,20 @@ application'' _ respond = respond $
     $ \send flush -> do
         send $ fromByteString "Starting the response...\n"
         flush
-        threadDelay 1000000
+        threadDelay 30000
         send $ fromByteString "All done!\n"
 
 service :: DefaultWaiServletApplication
 service = makeServiceMethod application
 
+service' :: DefaultWaiServletApplication
 service' = makeServiceMethod $ app
   where app= application' $ unsafePerformIO $ newMVar 0
 
-foreign export java "service" service' :: DefaultWaiServletApplication
+service'' :: DefaultWaiServletApplication
+service'' = makeServiceMethod application''
+
+foreign export java "service" service'' :: DefaultWaiServletApplication
 
 main = undefined --run 3000 application
 
