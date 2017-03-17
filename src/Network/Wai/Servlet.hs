@@ -18,8 +18,10 @@ makeServiceMethod :: (a <: GenericServlet) =>
 makeServiceMethod  waiApp servReq servResp =
   do io $ waiApp waiReq waiRespond
      return ()
-  where waiReq = makeWaiRequest $ unsafeCast servReq
-        waiRespond = updateHttpServletResponse $ unsafeCast servResp  
+  where httpServReq = unsafeCast servReq
+        httpServResp = unsafeCast servResp
+        waiReq = makeWaiRequest httpServReq
+        waiRespond = updateHttpServletResponse httpServReq httpServResp  
 
 -- Types for create a Servlet that can be used for create war packages to deploy in j2ee servers
 -- using "foreign export java service :: DefaultWaiServletApplication"

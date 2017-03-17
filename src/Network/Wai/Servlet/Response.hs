@@ -15,6 +15,7 @@ import Data.Word (Word8)
 import qualified Network.Wai as Wai
 import qualified Network.Wai.Internal as WaiIn
 import qualified Network.HTTP.Types as HTTP
+import Network.Wai.Servlet.Request
 import Java
 import qualified Java.IO as JIO
 
@@ -45,9 +46,9 @@ foreign import java unsafe "@interface flushBuffer" flushBuffer ::
 foreign import java unsafe "@interface getBufferSize" getBufferSize ::
    (a <: ServletResponse) => Java a Int
 
-updateHttpServletResponse :: HttpServletResponse -> Wai.Response ->
-                             IO Wai.ResponseReceived
-updateHttpServletResponse servResp waiResp = case waiResp of
+updateHttpServletResponse :: HttpServletRequest -> HttpServletResponse ->
+                             Wai.Response -> IO Wai.ResponseReceived
+updateHttpServletResponse servReq servResp waiResp = case waiResp of
 
   (WaiIn.ResponseBuilder status headers builder) -> do
     withServResp $ do
