@@ -50,6 +50,12 @@ service' = makeServiceMethod $ app
 service'' :: DefaultWaiServletApplication
 service'' = makeServiceMethod application''
 
+application''' :: Application
+application''' _ respond = respond $
+  responseFile status200 [("Content-Type", "text/html")]
+    "index.html"
+    Nothing
+
 foreign export java "service" service'' :: DefaultWaiServletApplication
 
 main = undefined --run 3000 application
