@@ -68,7 +68,7 @@ updateHttpServletResponse servReq servResp waiResp = case waiResp of
   respFile@(WaiIn.ResponseFile status headers filePath filePart) -> do
     withServResp $ do
       setStatusAndHeaders status headers
-      serveFile respFile 
+      serveFile servReq respFile 
     return WaiIn.ResponseReceived
                                              
   (WaiIn.ResponseRaw rawStream response) ->
@@ -117,5 +117,6 @@ sendChunk resp builder = javaWith resp $ do
 flush :: (a <: ServletResponse) => a -> IO ()
 flush resp = javaWith resp flushBuffer
 
-serveFile :: (a <: ServletResponse) => WaiIn.Response -> Java a ()
-serveFile = undefined
+serveFile :: (resp <: ServletResponse, req <: ServletRequest) =>
+  req -> WaiIn.Response -> Java resp ()
+serveFile = error "serveFile not implemented yet"
