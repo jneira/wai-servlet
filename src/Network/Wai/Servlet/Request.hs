@@ -1,6 +1,10 @@
-{-# LANGUAGE MagicHash,TypeFamilies,DataKinds,FlexibleContexts #-}
+{-# LANGUAGE MagicHash,TypeFamilies,DataKinds,FlexibleContexts,
+             OverloadedStrings, TypeOperators #-}
 module Network.Wai.Servlet.Request where
-import qualified Network.Wai as Wai
+import Network.Wai.Internal
+import qualified Network.HTTP.Types as H
+import Network.Socket (SockAddr (SockAddrInet))
+import qualified Data.ByteString as B
 import Java
 
 data {-# CLASS "javax.servlet.ServletRequest" #-}
@@ -11,8 +15,28 @@ data {-# CLASS "javax.servlet.http.HttpServletRequest" #-}
   HttpServletRequest = HttpServletRequest (Object# HttpServletRequest)
   deriving Class
 
+foreign import java unsafe "@interface getMethod" getMethod ::
+  (a <: HttpServletRequest) => Java a String
+
 type instance Inherits HttpServletRequest = '[ServletRequest]
 
-makeWaiRequest :: HttpServletRequest -> Wai.Request
-makeWaiRequest req = undefined
+makeWaiRequest :: HttpServletRequest -> Request
+makeWaiRequest servReq req = pureJavaWith servReq $ Request
+   { requestMethod = getMethod
+   , httpVersion = H.http10
+   , rawPathInfo = B.empty
+   , rawQueryString = B.empty
+   , requestHeaders = []
+   , isSecure = False
+   , remoteHost = SockAddrInet 0 0
+   , pathInfo = []
+   , queryString = []
+   , requestBody = return B.empty
+   , vault = mempty
+   , requestBodyLength = KnownLength 0
+   , requestHeaderHost = Nothing
+   , requestHeaderRange = Nothing
+   , requestHeaderReferer = Nothing
+   , requestHeaderUserAgent = Nothing
+  }
 
