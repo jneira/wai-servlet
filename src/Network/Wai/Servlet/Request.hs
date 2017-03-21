@@ -6,7 +6,8 @@ import qualified Network.HTTP.Types as H
 import Network.Socket (SockAddr (SockAddrInet))
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as BSChar (pack)
-import qualified Data.ByteString.UTF8 as BSUTF8 (toString)
+import qualified Data.ByteString.UTF8 as BSUTF8 (fromString)
+import qualified Data.CaseInsensitive as CI
 import Data.List (intercalate)
 import Java
 
@@ -67,7 +68,7 @@ httpVersion req = pureJavaWith req $ do
     "HTTP/1.0" -> H.http10
     "HTTP/1.1" -> H.http11
   
-pathInfo :: (a <: ServletRequest) => a -> B.ByteString
+pathInfo :: (a <: HttpServletRequest) => a -> B.ByteString
 pathInfo req = pureJavaWith req $ do
   path <- getPathInfo
   return $ BSUTF8.fromString path
@@ -75,7 +76,8 @@ pathInfo req = pureJavaWith req $ do
 requestHeaders :: (a <: ServletRequest) => a -> H.RequestHeaders
 requestHeaders req = pureJavaWith req $ do
   names <- fromJava getHeaderNames
-  return $  zip names $ map (BSUTF8.fromString . intercalate "," .
-                             fromJava . getHeaders) names
+  return $ zip $ map CI.mk names $
+                 map (BSUTF8.fromString . intercalate "," .
+                      fromJava . getHeaders) names
   
   
