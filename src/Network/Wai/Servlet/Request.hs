@@ -3,11 +3,12 @@
 module Network.Wai.Servlet.Request where
 import qualified Network.Wai.Internal as W
 import qualified Network.HTTP.Types as H
-import Network.Socket (SockAddr (SockAddrInet))
+import Network.Socket (SockAddr (SockAddrInet),tupleToHostAddress)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as BSChar (pack)
 import qualified Data.ByteString.UTF8 as BSUTF8 (fromString)
 import qualified Data.CaseInsensitive as CI
+import Data.Word
 import Data.List (intercalate)
 import Data.Maybe (fromMaybe)
 import Java
@@ -26,6 +27,14 @@ foreign import java unsafe "@interface getCharacterEncoding" getCharacterEncodin
   (a <: ServletRequest) => Java a String
 foreign import java unsafe "@interface getVersion" getProtocol ::
   (a <: ServletRequest) => Java a String
+foreign import java unsafe "@interface isSecure" isSecure ::
+  (a <: ServletRequest) => Java a Bool
+foreign import java unsafe "@interface getRemoteAddr" getRemoteAddr ::
+  (a <: ServletRequest) => Java a String
+foreign import java unsafe "@interface getRemotePort" getRemotePort ::
+  (a <: ServletRequest) => Java a Int
+
+
 foreign import java unsafe "@interface getMethod" getMethod ::
   (a <: HttpServletRequest) => Java a String
 foreign import java unsafe "@interface getPathInfo" getPathInfo ::
@@ -44,9 +53,9 @@ makeWaiRequest req  =  W.Request
    , W.httpVersion = httpVersion req
    , W.rawPathInfo = rawPath
    , W.rawQueryString = rawQuery
-   , W.requestHeaders = []
-   , W.isSecure = False
-   , W.remoteHost = SockAddrInet 0 0
+   , W.requestHeaders = requestHeaders req
+   , W.isSecure = isSecureRequest req
+   , W.remoteHost = remoteHost req
    , W.pathInfo = path
    , W.queryString = query
    , W.requestBody = return B.empty
@@ -99,5 +108,20 @@ requestHeader req name = pureJavaWith req $ do
       hdrn = CI.mk $ BSChar.pack name 
   return (hdrn,hdrs')
 
+isSecureRequest :: (a <: ServletRequest) => a -> Bool
+isSecureRequest req = pureJavaWith req $ isSecure
 
+remoteHost :: (a <: ServletRequest) => a -> SockAddr
+remoteHost req = pureJavaWith req $ do
+  ipStr <- getRemoteAddr
+  portInt <- getRemotePort
+  let [ip1,ip2,ip3,ip4] = map read $ wordsWhen (=='.') ipStr
+      hostAddr = tupleToHostAddress (ip1,ip2,ip3,ip4)
+      port = fromIntegral portInt
+  return $ SockAddrInet port hostAddr
 
+wordsWhen :: (Char -> Bool) -> String -> [String]
+wordsWhen p s =  case dropWhile p s of
+                      "" -> []
+                      s' -> w : wordsWhen p s''
+                            where (w, s'') = break p s'
