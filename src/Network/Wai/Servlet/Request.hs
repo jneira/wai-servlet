@@ -13,7 +13,7 @@ import qualified Data.ByteString.UTF8 as BSUTF8 (fromString)
 import qualified Data.CaseInsensitive as CI
 import Data.Word
 import Data.List (intercalate)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe,catMaybes)
 import Java
 import qualified Java.IO as JIO
 
@@ -44,6 +44,8 @@ foreign import java unsafe "@interface getRemotePort" getRemotePort ::
   (a <: ServletRequest) => Java a Int
 foreign import java unsafe "@interface getInputStream" getInputStream ::
   (a <: ServletRequest) => Java a ServletInputStream
+foreign import java unsafe "@interface getContentLength" getContentLength ::
+  (a <: ServletRequest) => Java a Int
 
 foreign import java unsafe "@interface getMethod" getMethod ::
   (a <: HttpServletRequest) => Java a String
@@ -54,7 +56,7 @@ foreign import java unsafe "@interface getQueryString" getQueryString ::
 foreign import java unsafe "@interface getHeaderNames" getHeaderNames ::
   (a <: HttpServletRequest) => Java a (Enumeration JString)
 foreign import java unsafe "@interface getHeaders" getHeaders ::
-  (a <: HttpServletRequest) => String -> Java a (Enumeration JString)
+  (a <: HttpServletRequest) => String -> Java a (Maybe (Enumeration JString))
 
 foreign import java unsafe "@static network.wai.servlet.Utils.toByteBuffer"
    toByteBuffer :: (is <: JIO.InputStream) => is -> Ptr Word8
@@ -75,16 +77,17 @@ makeWaiRequest req  =  W.Request
    , W.queryString = query
    , W.requestBody = requestBody req
    , W.vault = mempty
-   , W.requestBodyLength = W.KnownLength 0
-   , W.requestHeaderHost = Nothing
-   , W.requestHeaderRange = Nothing
-   , W.requestHeaderReferer = Nothing
-   , W.requestHeaderUserAgent = Nothing
+   , W.requestBodyLength = requestBodyLength req
+   , W.requestHeaderHost = header "Host"
+   , W.requestHeaderRange = header "Range"
+   , W.requestHeaderReferer = header "Referer"
+   , W.requestHeaderUserAgent = header "User-Agent"
   }
   where rawPath = pathInfo req
         path = H.decodePathSegments rawPath
         rawQuery = queryString req
         query = H.parseQuery rawQuery
+        header name = fmap snd $ requestHeader req name
           
 requestMethod :: (a <: HttpServletRequest) => a -> H.Method
 requestMethod req = pureJavaWith req $ do
@@ -113,15 +116,17 @@ queryString req = pureJavaWith req $ do
 requestHeaders :: (a <: HttpServletRequest) => a -> H.RequestHeaders
 requestHeaders req = pureJavaWith req $ do
   names <- getHeaderNames
-  return $ map (requestHeader req . fromJString) $ fromJava  names
+  return $ catMaybes $ map (requestHeader req . fromJString) $
+           fromJava  names
   
-requestHeader ::  (a <: HttpServletRequest) => a -> String -> H.Header
+requestHeader ::  (a <: HttpServletRequest) => a -> String -> Maybe H.Header
 requestHeader req name = pureJavaWith req $ do
-  jhdrs <- getHeaders name
-  let hdrs = map fromJString $ fromJava jhdrs
-      hdrs' = BSChar.pack $ intercalate "," hdrs
-      hdrn = CI.mk $ BSChar.pack name 
-  return (hdrn,hdrs')
+  mjhdrs <- getHeaders name
+  return $ fmap f mjhdrs
+  where f jhdrs = (hdrn,hdrs')
+          where hdrs = map fromJString $ fromJava jhdrs
+                hdrs' = BSChar.pack $ intercalate "," hdrs
+                hdrn = CI.mk $ BSChar.pack name 
 
 isSecureRequest :: (a <: ServletRequest) => a -> Bool
 isSecureRequest req = pureJavaWith req $ isSecure
@@ -141,7 +146,7 @@ wordsWhen p s =  case dropWhile p s of
                       s' -> w : wordsWhen p s''
                             where (w, s'') = break p s'
 
-requestBody :: (a <: ServletRequest) => a -> IO B.ByteString,Int
+requestBody :: (a <: ServletRequest) => a -> IO B.ByteString
 requestBody req = do
   is <- javaWith req getInputStream
   let ptr = toByteBuffer is
@@ -150,3 +155,8 @@ requestBody req = do
   return $ if l == 0 then B.empty
            else BSInt.fromForeignPtr fptr 0 l 
   
+requestBodyLength :: (a <: ServletRequest) => a -> W.RequestBodyLength
+requestBodyLength req = pureJavaWith req $ do
+  l <- getContentLength
+  return $ if l > -1 then W.KnownLength (fromIntegral l)
+           else W.ChunkedBody
