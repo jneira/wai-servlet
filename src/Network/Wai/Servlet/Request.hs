@@ -4,7 +4,10 @@ module Network.Wai.Servlet.Request where
 import qualified Network.Wai.Internal as W
 import qualified Network.HTTP.Types as H
 import Network.Socket (SockAddr (SockAddrInet),tupleToHostAddress)
+import Foreign.ForeignPtr (ForeignPtr,newForeignPtr_)
+import Foreign.Ptr (Ptr)
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Internal as BSInt (fromForeignPtr)
 import qualified Data.ByteString.Char8 as BSChar (pack)
 import qualified Data.ByteString.UTF8 as BSUTF8 (fromString)
 import qualified Data.CaseInsensitive as CI
@@ -12,6 +15,7 @@ import Data.Word
 import Data.List (intercalate)
 import Data.Maybe (fromMaybe)
 import Java
+import qualified Java.IO as JIO
 
 data {-# CLASS "javax.servlet.ServletRequest" #-}
   ServletRequest = ServletRequest (Object# ServletRequest)
@@ -21,7 +25,12 @@ data {-# CLASS "javax.servlet.http.HttpServletRequest" #-}
   HttpServletRequest = HttpServletRequest (Object# HttpServletRequest)
   deriving Class
 
+data {-# CLASS "javax.servlet.ServletInputStream" #-}
+  ServletInputStream = ServletInputStream (Object# ServletInputStream)
+  deriving Class
+
 type instance Inherits HttpServletRequest = '[ServletRequest]
+type instance Inherits ServletInputStream = '[JIO.InputStream]
 
 foreign import java unsafe "@interface getCharacterEncoding" getCharacterEncoding ::
   (a <: ServletRequest) => Java a String
@@ -33,7 +42,8 @@ foreign import java unsafe "@interface getRemoteAddr" getRemoteAddr ::
   (a <: ServletRequest) => Java a String
 foreign import java unsafe "@interface getRemotePort" getRemotePort ::
   (a <: ServletRequest) => Java a Int
-
+foreign import java unsafe "@interface getInputStream" getInputStream ::
+  (a <: ServletRequest) => Java a ServletInputStream
 
 foreign import java unsafe "@interface getMethod" getMethod ::
   (a <: HttpServletRequest) => Java a String
@@ -45,6 +55,11 @@ foreign import java unsafe "@interface getHeaderNames" getHeaderNames ::
   (a <: HttpServletRequest) => Java a (Enumeration JString)
 foreign import java unsafe "@interface getHeaders" getHeaders ::
   (a <: HttpServletRequest) => String -> Java a (Enumeration JString)
+
+foreign import java unsafe "@static network.wai.servlet.Utils.toByteBuffer"
+   toByteBuffer :: (is <: JIO.InputStream) => is -> Ptr Word8
+foreign import java unsafe "@static network.wai.servlet.Utils.size"
+   size :: Ptr Word8 -> Int
 
 
 makeWaiRequest :: HttpServletRequest -> W.Request
@@ -58,7 +73,7 @@ makeWaiRequest req  =  W.Request
    , W.remoteHost = remoteHost req
    , W.pathInfo = path
    , W.queryString = query
-   , W.requestBody = return B.empty
+   , W.requestBody = requestBody req
    , W.vault = mempty
    , W.requestBodyLength = W.KnownLength 0
    , W.requestHeaderHost = Nothing
@@ -125,3 +140,13 @@ wordsWhen p s =  case dropWhile p s of
                       "" -> []
                       s' -> w : wordsWhen p s''
                             where (w, s'') = break p s'
+
+requestBody :: (a <: ServletRequest) => a -> IO B.ByteString,Int
+requestBody req = do
+  is <- javaWith req getInputStream
+  let ptr = toByteBuffer is
+      l = size ptr
+  fptr <- newForeignPtr_ ptr -- without finalizer?
+  return $ if l == 0 then B.empty
+           else BSInt.fromForeignPtr fptr 0 l 
+  
