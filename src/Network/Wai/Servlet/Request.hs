@@ -50,7 +50,7 @@ foreign import java unsafe "@interface getContentLength" getContentLength ::
 foreign import java unsafe "@interface getMethod" getMethod ::
   (a <: HttpServletRequest) => Java a String
 foreign import java unsafe "@interface getPathInfo" getPathInfo ::
-  (a <: HttpServletRequest) => Java a String
+  (a <: HttpServletRequest) => Java a (Maybe String)
 foreign import java unsafe "@interface getQueryString" getQueryString ::
   (a <: HttpServletRequest) => Java a (Maybe String)
 foreign import java unsafe "@interface getHeaderNames" getHeaderNames ::
@@ -71,7 +71,7 @@ data RequestSettings = RequestSettings
 
 defaultRequestSettings :: RequestSettings
 defaultRequestSettings = RequestSettings
-  { reqSettingURICharEncoding = UTF8 }
+  { reqSettingURICharEncoding = ISO_8859_1 }
 
 makeWaiRequest :: HttpServletRequest -> W.Request
 makeWaiRequest =  makeWaiRequestWithSettings defaultRequestSettings
@@ -117,6 +117,7 @@ httpVersion req = pureJavaWith req $ do
     "HTTP/1.1" -> H.http11
 
 encode ::  SupportedCharEncoding -> String -> B.ByteString
+encode enc [] = B.empty
 encode enc str = case enc of
   UTF8 -> BSUTF8.fromString str
   ISO_8859_1 -> BSChar.pack str
@@ -125,7 +126,8 @@ pathInfo :: (a <: HttpServletRequest) => SupportedCharEncoding ->
             a -> B.ByteString
 pathInfo enc req = pureJavaWith req $ do
   path <- getPathInfo
-  return $ encode enc path
+  let pathStr = fromMaybe "" path
+  return $ encode enc pathStr
                                   
 queryString :: (a <: HttpServletRequest) => SupportedCharEncoding ->
                a -> B.ByteString
