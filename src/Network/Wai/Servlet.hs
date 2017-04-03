@@ -1,6 +1,16 @@
 {-# LANGUAGE MagicHash,TypeFamilies,DataKinds,FlexibleContexts,
              TypeOperators #-}
-module Network.Wai.Servlet where
+module Network.Wai.Servlet
+    ( ServletApplication
+    , GenericServletApplication
+    ,  ServletAppSettings ()
+    , defaultServletAppSettings
+    , makeServiceMethod
+    , makeServiceMethodWithSettings
+    , DefaultWaiServlet
+    , DefaultWaiServletApplication
+    , makeServlet
+    ) where
 import Network.Wai.Servlet.Response
 import Network.Wai.Servlet.Request
 import qualified Network.Wai as Wai
