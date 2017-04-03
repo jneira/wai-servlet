@@ -63,9 +63,22 @@ foreign import java unsafe "@static network.wai.servlet.Utils.toByteBuffer"
 foreign import java unsafe "@static network.wai.servlet.Utils.size"
    size :: Ptr Word8 -> Int
 
+data SupportedCharEncoding = UTF8 | ISO_8859_1
+  deriving Show
+
+data RequestSettings = RequestSettings
+  { reqSettingURICharEncoding :: SupportedCharEncoding }
+
+defaultRequestSettings :: RequestSettings
+defaultRequestSettings = RequestSettings
+  { reqSettingURICharEncoding = UTF8 }
 
 makeWaiRequest :: HttpServletRequest -> W.Request
-makeWaiRequest req  =  W.Request
+makeWaiRequest =  makeWaiRequestWithSettings defaultRequestSettings
+
+makeWaiRequestWithSettings :: RequestSettings -> HttpServletRequest ->
+                              W.Request
+makeWaiRequestWithSettings settings req  =  W.Request
    { W.requestMethod = requestMethod req 
    , W.httpVersion = httpVersion req
    , W.rawPathInfo = rawPath
@@ -83,9 +96,10 @@ makeWaiRequest req  =  W.Request
    , W.requestHeaderReferer = header "Referer"
    , W.requestHeaderUserAgent = header "User-Agent"
   }
-  where rawPath = pathInfo req
+  where uriCharEnc = reqSettingURICharEncoding settings
+        rawPath = pathInfo uriCharEnc req
         path = H.decodePathSegments rawPath
-        rawQuery = queryString req
+        rawQuery = queryString uriCharEnc req
         query = H.parseQuery rawQuery
         header name = fmap snd $ requestHeader req name
           
@@ -101,18 +115,25 @@ httpVersion req = pureJavaWith req $ do
     "HTTP/0.9" -> H.http09
     "HTTP/1.0" -> H.http10
     "HTTP/1.1" -> H.http11
-  
-pathInfo :: (a <: HttpServletRequest) => a -> B.ByteString
-pathInfo req = pureJavaWith req $ do
-  path <- getPathInfo
-  return $ BSUTF8.fromString path
 
-queryString :: (a <: HttpServletRequest) => a -> B.ByteString
-queryString req = pureJavaWith req $ do
+encode ::  SupportedCharEncoding -> String -> B.ByteString
+encode enc str = case enc of
+  UTF8 -> BSUTF8.fromString str
+  ISO_8859_1 -> BSChar.pack str
+  
+pathInfo :: (a <: HttpServletRequest) => SupportedCharEncoding ->
+            a -> B.ByteString
+pathInfo enc req = pureJavaWith req $ do
+  path <- getPathInfo
+  return $ encode enc path
+                                  
+queryString :: (a <: HttpServletRequest) => SupportedCharEncoding ->
+               a -> B.ByteString
+queryString enc req = pureJavaWith req $ do
   query <- getQueryString
   let queryStr = fromMaybe "" query
-  return $ BSUTF8.fromString queryStr
-
+  return $ encode enc queryStr
+  
 requestHeaders :: (a <: HttpServletRequest) => a -> H.RequestHeaders
 requestHeaders req = pureJavaWith req $ do
   names <- getHeaderNames
