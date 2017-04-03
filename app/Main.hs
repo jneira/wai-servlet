@@ -12,12 +12,12 @@ import Data.Monoid                        ((<>))
 import System.IO.Unsafe
 
 
-application :: Application
-application _ respond = respond $
+appSimple :: Application
+appSimple _ respond = respond $
    responseLBS status200 [("Content-Type", "text/plain")] "Hello World"
 
-application' :: MVar Integer -> Application
-application' countRef _ respond = do
+appState :: MVar Integer -> Application
+appState countRef _ respond = do
     modifyMVar countRef $ \count -> do
         let count' = count + 1
             msg = fromByteString "You are visitor number: " <>
@@ -31,8 +31,8 @@ application' countRef _ respond = do
 foreign import java unsafe "@static java.lang.Thread.sleep"
   threadDelay :: Int64 -> IO ()
 
-application'' :: Application
-application'' _ respond = respond $
+appStream :: Application
+appStream _ respond = respond $
   responseStream status200 [("Content-Type", "text/plain")]
     $ \send flush -> do
         send $ fromByteString "Starting the response...\n"
@@ -40,23 +40,27 @@ application'' _ respond = respond $
         threadDelay 30000
         send $ fromByteString "All done!\n"
 
-service :: DefaultWaiServletApplication
-service = makeServiceMethod application
+servSimple :: DefaultWaiServletApplication
+servSimple = makeServiceMethod appSimple
 
-service' :: DefaultWaiServletApplication
-service' = makeServiceMethod $ app
-  where app= application' $ unsafePerformIO $ newMVar 0
+servState :: DefaultWaiServletApplication
+servState = makeServiceMethod $ app
+  where app = appState $ unsafePerformIO $ newMVar 0
 
-service'' :: DefaultWaiServletApplication
-service'' = makeServiceMethod application''
+servStream :: DefaultWaiServletApplication
+servStream = makeServiceMethod appStream
 
-application''' :: Application
-application''' _ respond = respond $
+appFile :: Application
+appFile _ respond = respond $
   responseFile status200 [("Content-Type", "text/html")]
     "index.html"
     Nothing
 
-foreign export java "service" service'' :: DefaultWaiServletApplication
+servFile :: DefaultWaiServletApplication
+servFile = makeServiceMethod appFile
+
+
+foreign export java "service" servStream :: DefaultWaiServletApplication
 
 main = undefined --run 3000 application
 
