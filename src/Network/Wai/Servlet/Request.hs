@@ -34,7 +34,7 @@ type instance Inherits ServletInputStream = '[JIO.InputStream]
 
 foreign import java unsafe "@interface getCharacterEncoding" getCharacterEncoding ::
   (a <: ServletRequest) => Java a String
-foreign import java unsafe "@interface getVersion" getProtocol ::
+foreign import java unsafe "@interface getProtocol" getProtocol ::
   (a <: ServletRequest) => Java a String
 foreign import java unsafe "@interface isSecure" isSecure ::
   (a <: ServletRequest) => Java a Bool
