@@ -59,8 +59,14 @@ appFile _ respond = respond $
 servFile :: DefaultWaiServletApplication
 servFile = makeServiceMethod appFile
 
+appShowReq :: Application
+appShowReq req respond = respond $ responseBuilder
+  status200 [("Content-Type", "text/plain")] $ fromShow req
 
-foreign export java "service" servStream :: DefaultWaiServletApplication
+servShowReq :: DefaultWaiServletApplication
+servShowReq = makeServiceMethod appShowReq 
+
+foreign export java "service" servShowReq :: DefaultWaiServletApplication
 
 main = undefined --run 3000 application
 
