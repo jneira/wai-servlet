@@ -61,7 +61,9 @@ servFile = makeServiceMethod appFile
 
 appShowReq :: Application
 appShowReq req respond = respond $ responseBuilder
-  status200 [("Content-Type", "text/plain")] $ fromShow req
+  status200 [("Content-Type", "text/plain")] $  fromShow req
+--  (fromShow $ requestMethod req) <> (fromShow $ httpVersion req) <>
+--  (fromByteString $ rawPathInfo req) <> (fromByteString $ rawQueryString req) 
 
 servShowReq :: DefaultWaiServletApplication
 servShowReq = makeServiceMethod appShowReq 
