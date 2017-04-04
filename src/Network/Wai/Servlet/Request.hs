@@ -68,6 +68,7 @@ data SupportedCharEncoding = UTF8 | ISO_8859_1
 
 data RequestSettings = RequestSettings
   { reqSettingURICharEncoding :: SupportedCharEncoding }
+  deriving Show
 
 defaultRequestSettings :: RequestSettings
 defaultRequestSettings = RequestSettings
@@ -117,7 +118,7 @@ httpVersion req = pureJavaWith req $ do
     "HTTP/1.1" -> H.http11
 
 encode ::  SupportedCharEncoding -> Maybe String -> B.ByteString
-encode enc Nothing = B.empty
+encode _ Nothing = B.empty
 encode enc (Just str) = case enc of
   UTF8 -> BSUTF8.fromString str
   ISO_8859_1 -> BSChar.pack str
