@@ -116,9 +116,9 @@ httpVersion req = pureJavaWith req $ do
     "HTTP/1.0" -> H.http10
     "HTTP/1.1" -> H.http11
 
-encode ::  SupportedCharEncoding -> String -> B.ByteString
-encode enc [] = B.empty
-encode enc str = case enc of
+encode ::  SupportedCharEncoding -> Maybe String -> B.ByteString
+encode enc Nothing = B.empty
+encode enc (Just str) = case enc of
   UTF8 -> BSUTF8.fromString str
   ISO_8859_1 -> BSChar.pack str
   
@@ -126,15 +126,13 @@ pathInfo :: (a <: HttpServletRequest) => SupportedCharEncoding ->
             a -> B.ByteString
 pathInfo enc req = pureJavaWith req $ do
   path <- getPathInfo
-  let pathStr = fromMaybe "" path
-  return $ encode enc pathStr
+  return $ encode enc path
                                   
 queryString :: (a <: HttpServletRequest) => SupportedCharEncoding ->
                a -> B.ByteString
 queryString enc req = pureJavaWith req $ do
   query <- getQueryString
-  let queryStr = fromMaybe "" query
-  return $ encode enc queryStr
+  return $ encode enc query
   
 requestHeaders :: (a <: HttpServletRequest) => a -> H.RequestHeaders
 requestHeaders req = pureJavaWith req $ do
