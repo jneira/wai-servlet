@@ -21,7 +21,7 @@ servSimple = makeServiceMethod appSimple
 
 foreign export java "service" servSimple :: DefaultWaiServletApplication
 ```
-* This code will generate a `network.wai.servlet.DefaultWaiServlet` suitable to use in a standard war file
+* This code will generate a `network.wai.servlet.DefaultWaiServlet` java class that extends `javax.servlet.GenericServlet` suitable to use in a standard war file
 * To generate the war you have to create the standard directory structure:
   * webApp
     * static resources (jsp,html,etc)
