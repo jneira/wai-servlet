@@ -3,7 +3,8 @@
 module Network.Wai.Servlet.Request where
 import qualified Network.Wai.Internal as W
 import qualified Network.HTTP.Types as H
-import Network.Socket (SockAddr (SockAddrInet),tupleToHostAddress)
+import Network.Socket (SockAddr (SockAddrInet,SockAddrInet6),
+                       tupleToHostAddress,tupleToHostAddress6)
 import Foreign.ForeignPtr (ForeignPtr,newForeignPtr_)
 import Foreign.Ptr (Ptr)
 import qualified Data.ByteString as B
@@ -157,10 +158,16 @@ remoteHost :: (a <: ServletRequest) => a -> SockAddr
 remoteHost req = pureJavaWith req $ do
   ipStr <- getRemoteAddr
   portInt <- getRemotePort
-  let [ip1,ip2,ip3,ip4] = map read $ wordsWhen (=='.') ipStr
-      hostAddr = tupleToHostAddress (ip1,ip2,ip3,ip4)
+  let ip = wordsWhen (=='.') ipStr
+      ip' = if (length ip == 1) then wordsWhen (==':') ipStr else ip
       port = fromIntegral portInt
-  return $ SockAddrInet port hostAddr
+  return $ case length ip' of
+    4 -> let [ip1,ip2,ip3,ip4] = map read ip' in 
+         SockAddrInet port $ tupleToHostAddress (ip1,ip2,ip3,ip4)
+    8 -> let [ip1,ip2,ip3,ip4,ip5,ip6,ip7,ip8] = map read ip' in
+         SockAddrInet6 port 0
+         (tupleToHostAddress6 (ip1,ip2,ip3,ip4,ip5,ip6,ip7,ip8)) 0
+    _ -> error $ "Error parsing ip: " ++ ipStr 
 
 wordsWhen :: (Char -> Bool) -> String -> [String]
 wordsWhen p s =  case dropWhile p s of

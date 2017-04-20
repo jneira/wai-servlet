@@ -5,7 +5,7 @@ import Network.HTTP.Types                 (status200)
 import Network.Wai.Servlet
 --import Network.Wai.Handler.Warp (run)
 import Blaze.ByteString.Builder           (fromByteString)
-import Blaze.ByteString.Builder.Char.Utf8 (fromShow)
+import Blaze.ByteString.Builder.Char.Utf8 (fromShow,fromString)
 --import Control.Concurrent                 (threadDelay)
 import Control.Concurrent.MVar
 import Data.Monoid                        ((<>))
@@ -62,8 +62,6 @@ servFile = makeServiceMethod appFile
 appShowReq :: Application
 appShowReq req respond = respond $ responseBuilder
   status200 [("Content-Type", "text/plain")] $  fromShow req
---  (fromShow $ requestMethod req) <> (fromShow $ httpVersion req) <>
---  (fromByteString $ rawPathInfo req) <> (fromByteString $ rawQueryString req) 
 
 servShowReq :: DefaultWaiServletApplication
 servShowReq = makeServiceMethod appShowReq 
