@@ -99,8 +99,8 @@ makeWaiRequestWithSettings settings req  =  W.Request
    , W.requestHeaderUserAgent = header "User-Agent"
   }
   where uriCharEnc = reqSettingURICharEncoding settings
-        rawPath = pathInfo uriCharEnc req
-        path = H.decodePathSegments rawPath
+        rawPath = rawPathInfo uriCharEnc req
+        path = H.decodePathSegments $ pathInfo uriCharEnc req
         rawQuery = queryString uriCharEnc req
         query = H.parseQuery rawQuery
         header name = fmap snd $ requestHeader req name
@@ -123,7 +123,18 @@ encode _ Nothing = B.empty
 encode enc (Just str) = case enc of
   UTF8 -> BSUTF8.fromString str
   ISO_8859_1 -> BSChar.pack str
-  
+
+rawPathInfo :: (a <: HttpServletRequest) => SupportedCharEncoding ->
+            a -> B.ByteString
+rawPathInfo enc req = pureJavaWith req $ do
+  path <- getPathInfo
+  case path of
+    Nothing -> return B.empty
+    Just str -> do
+      let segments = wordsWhen (=='/') str
+      return $ B.intercalate "/" $
+        map (H.urlEncode False . encode enc . Just) segments
+
 pathInfo :: (a <: HttpServletRequest) => SupportedCharEncoding ->
             a -> B.ByteString
 pathInfo enc req = pureJavaWith req $ do
@@ -187,5 +198,5 @@ requestBody req = do
 requestBodyLength :: (a <: ServletRequest) => a -> W.RequestBodyLength
 requestBodyLength req = pureJavaWith req $ do
   l <- getContentLength
-  return $ if l > -1 then W.KnownLength (fromIntegral l)
-           else W.ChunkedBody
+  return $ W.KnownLength (fromIntegral (if l < 0 then 0 else l)
+

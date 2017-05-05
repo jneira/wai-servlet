@@ -19,12 +19,12 @@ library
   build-depends:       base >= 4.7 && < 4.9
                      , wai == 3.2.1.1
                      , network
-                     , http-types == 0.9.1
+                     , http-types
                      , blaze-builder
                      , bytestring
-                     , case-insensitive == 1.2.0.8
-                     , hashable >= 1.2.4.0 && <= 1.2.6.0
-                     , utf8-string == 1.0.1.1
+                     , case-insensitive
+                     , hashable
+                     , utf8-string
   hs-source-dirs:      src      
   default-language:    Haskell2010
   --java-sources:        java/servlet-api-2.5.jar,java/Utils.java
@@ -42,3 +42,4 @@ executable wai-servlet-test
                      , blaze-builder
   hs-source-dirs:      app
   default-language:    Haskell2010
+  ghc-options:         "-threaded"
