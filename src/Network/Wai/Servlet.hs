@@ -3,10 +3,7 @@
 module Network.Wai.Servlet
     ( ServletApplication
     , GenericServletApplication
-    ,  ServletAppSettings ()
-    , defaultServletAppSettings
     , makeServiceMethod
-    , makeServiceMethodWithSettings
     , DefaultWaiServlet
     , DefaultWaiServletApplication
     , makeServlet
@@ -23,27 +20,14 @@ data {-# CLASS "javax.servlet.GenericServlet" #-} GenericServlet =
 type ServletApplication a = ServletRequest -> ServletResponse -> Java a ()
 type GenericServletApplication = ServletApplication GenericServlet
 
-data ServletAppSettings = ServletAppSettings
-  { requestSettings :: RequestSettings }
-
-defaultServletAppSettings :: ServletAppSettings
-defaultServletAppSettings = ServletAppSettings
-  { requestSettings = defaultRequestSettings }
-
 makeServiceMethod :: (a <: GenericServlet) =>
-                     Wai.Application -> ServletApplication a
-makeServiceMethod  =
-  makeServiceMethodWithSettings defaultServletAppSettings
-
-makeServiceMethodWithSettings :: (a <: GenericServlet) =>
-  ServletAppSettings -> Wai.Application -> ServletApplication a
-makeServiceMethodWithSettings settings waiApp servReq servResp =
+  Wai.Application -> ServletApplication a
+makeServiceMethod waiApp servReq servResp =
   do io $ waiApp waiReq waiRespond
      return ()
   where httpServReq = unsafeCast servReq
         httpServResp = unsafeCast servResp
-        reqSettings = requestSettings settings
-        waiReq = makeWaiRequestWithSettings reqSettings httpServReq
+        waiReq = makeWaiRequest httpServReq
         waiRespond = updateHttpServletResponse httpServReq httpServResp  
 
 -- Types for create a Servlet that can be used for create war packages to deploy in j2ee servers

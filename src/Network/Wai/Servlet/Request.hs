@@ -15,6 +15,7 @@ import qualified Data.CaseInsensitive as CI
 import Data.Word
 import Data.List (intercalate)
 import Data.Maybe (fromMaybe,catMaybes)
+import Control.Monad (when)
 import Java
 import qualified Java.IO as JIO
 
@@ -64,23 +65,8 @@ foreign import java unsafe "@static network.wai.servlet.Utils.toByteBuffer"
 foreign import java unsafe "@static network.wai.servlet.Utils.size"
    size :: Ptr Word8 -> Int
 
-data SupportedCharEncoding = UTF8 | ISO_8859_1
-  deriving Show
-
-data RequestSettings = RequestSettings
-  { reqSettingURICharEncoding :: SupportedCharEncoding }
-  deriving Show
-
-defaultRequestSettings :: RequestSettings
-defaultRequestSettings = RequestSettings
-  { reqSettingURICharEncoding = ISO_8859_1 }
-
 makeWaiRequest :: HttpServletRequest -> W.Request
-makeWaiRequest =  makeWaiRequestWithSettings defaultRequestSettings
-
-makeWaiRequestWithSettings :: RequestSettings -> HttpServletRequest ->
-                              W.Request
-makeWaiRequestWithSettings settings req  =  W.Request
+makeWaiRequest req  =  W.Request
    { W.requestMethod = requestMethod req 
    , W.httpVersion = httpVersion req
    , W.rawPathInfo = rawPath
@@ -98,10 +84,9 @@ makeWaiRequestWithSettings settings req  =  W.Request
    , W.requestHeaderReferer = header "Referer"
    , W.requestHeaderUserAgent = header "User-Agent"
   }
-  where uriCharEnc = reqSettingURICharEncoding settings
-        rawPath = rawPathInfo uriCharEnc req
-        path = H.decodePathSegments $ pathInfo uriCharEnc req
-        rawQuery = queryString uriCharEnc req
+  where rawPath = rawPathInfo req
+        path = H.decodePathSegments $ pathInfo req
+        rawQuery = queryString req
         query = H.parseQuery rawQuery
         header name = fmap snd $ requestHeader req name
           
@@ -118,46 +103,41 @@ httpVersion req = pureJavaWith req $ do
     "HTTP/1.0" -> H.http10
     "HTTP/1.1" -> H.http11
 
-encode ::  SupportedCharEncoding -> Maybe String -> B.ByteString
-encode _ Nothing = B.empty
-encode enc (Just str) = case enc of
-  UTF8 -> BSUTF8.fromString str
-  ISO_8859_1 -> BSChar.pack str
+encode ::  Maybe String -> B.ByteString
+encode Nothing = B.empty
+encode (Just str) =  BSChar.pack str
 
-rawPathInfo :: (a <: HttpServletRequest) => SupportedCharEncoding ->
-            a -> B.ByteString
-rawPathInfo enc req = pureJavaWith req $ do
+rawPathInfo :: (a <: HttpServletRequest) => a -> B.ByteString
+rawPathInfo req = pureJavaWith req $ do
   path <- getPathInfo
   case path of
     Nothing -> return B.empty
     Just str -> do
       let segments = wordsWhen (=='/') str
       return $ B.intercalate "/" $
-        map (H.urlEncode False . encode enc . Just) segments
+        map (H.urlEncode False . encode . Just) segments
 
-pathInfo :: (a <: HttpServletRequest) => SupportedCharEncoding ->
-            a -> B.ByteString
-pathInfo enc req = pureJavaWith req $ do
+pathInfo :: (a <: HttpServletRequest) => a -> B.ByteString
+pathInfo req = pureJavaWith req $ do
   path <- getPathInfo
-  return $ encode enc path
+  return $ encode path
                                   
-queryString :: (a <: HttpServletRequest) => SupportedCharEncoding ->
-               a -> B.ByteString
-queryString enc req = pureJavaWith req $ do
+queryString :: (a <: HttpServletRequest) => a -> B.ByteString
+queryString req = pureJavaWith req $ do
   query <- getQueryString
-  return $ encode enc query
+  return $ encode query
   
 requestHeaders :: (a <: HttpServletRequest) => a -> H.RequestHeaders
 requestHeaders req = pureJavaWith req $ do
   names <- getHeaderNames
   return $ catMaybes $ map (requestHeader req . fromJString) $
            fromJava  names
-  
+
 requestHeader ::  (a <: HttpServletRequest) => a -> String -> Maybe H.Header
 requestHeader req name = pureJavaWith req $ do
   mjhdrs <- getHeaders name
-  return $ fmap f mjhdrs
-  where f jhdrs = (hdrn,hdrs')
+  return $ mjhdrs >>= f 
+  where f jhdrs = if null hdrs then Nothing else Just (hdrn,hdrs')
           where hdrs = map fromJString $ fromJava jhdrs
                 hdrs' = BSChar.pack $ intercalate "," hdrs
                 hdrn = CI.mk $ BSChar.pack name 
@@ -198,5 +178,5 @@ requestBody req = do
 requestBodyLength :: (a <: ServletRequest) => a -> W.RequestBodyLength
 requestBodyLength req = pureJavaWith req $ do
   l <- getContentLength
-  return $ W.KnownLength (fromIntegral (if l < 0 then 0 else l)
+  return $ W.KnownLength (fromIntegral $ if l < 0 then 0 else l)
 
