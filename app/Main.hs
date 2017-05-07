@@ -60,8 +60,13 @@ servFile :: DefaultWaiServletApplication
 servFile = makeServiceMethod appFile
 
 appShowReq :: Application
-appShowReq req respond = respond $ responseBuilder
-  status200 [("Content-Type", "text/plain")] $  fromShow req
+appShowReq req respond = do
+  body <- requestBody req
+  resp <- respond $ responseBuilder status200
+                    [("Content-Type", "text/plain")] $
+                    fromShow req <> fromString "\n" <>
+                    fromByteString body
+  return resp
 
 servShowReq :: DefaultWaiServletApplication
 servShowReq = makeServiceMethod appShowReq 
