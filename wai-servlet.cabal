@@ -16,8 +16,8 @@ library
   exposed-modules:     Network.Wai.Servlet     
   -- other-modules:       
   -- other-extensions:    
-  build-depends:       base >= 4.7 && < 4.9
-                     , wai == 3.2.1.1
+  build-depends:       base >= 4.8 && < 4.9
+                     , wai
                      , network
                      , http-types
                      , blaze-builder
@@ -27,19 +27,18 @@ library
                      , utf8-string
   hs-source-dirs:      src      
   default-language:    Haskell2010
-  --java-sources:        java/servlet-api-2.5.jar,java/Utils.java
   java-sources:        java/Utils.java
   maven-depends:       javax.servlet:servlet-api:2.5
   
-executable wai-servlet-test
+executable wai-servlet-example
   main-is:             Main.hs
   -- other-modules:       
   -- other-extensions:    
   build-depends:       base >=4.8 && <4.9
                      , wai-servlet
-                     , wai == 3.2.1.1
-                     , http-types == 0.9.1
+                     , wai
+                     , http-types
                      , blaze-builder
-  hs-source-dirs:      app
+  hs-source-dirs:      examples
   default-language:    Haskell2010
   ghc-options:         "-threaded"
