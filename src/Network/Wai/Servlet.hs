@@ -7,6 +7,8 @@ module Network.Wai.Servlet
     , DefaultWaiServlet
     , DefaultWaiServletApplication
     , makeServlet
+    , module Network.Wai.Servlet.Request
+    , module Network.Wai.Servlet.Response
     ) where
 import Network.Wai.Servlet.Response
 import Network.Wai.Servlet.Request

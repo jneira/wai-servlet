@@ -1,6 +1,9 @@
 {-# LANGUAGE MagicHash,TypeFamilies,DataKinds,FlexibleContexts,
              MultiParamTypeClasses,TypeOperators #-}
-module Network.Wai.Servlet.Response where
+module Network.Wai.Servlet.Response
+    ( HttpServletResponse
+    , ServletResponse
+    , updateHttpServletResponse ) where
 import Control.Monad (forM_,when)
 import qualified Blaze.ByteString.Builder as Blaze
 import qualified Data.CaseInsensitive as CI (original)

@@ -1,6 +1,9 @@
 {-# LANGUAGE MagicHash,TypeFamilies,DataKinds,FlexibleContexts,
              OverloadedStrings, TypeOperators #-}
-module Network.Wai.Servlet.Request where
+module Network.Wai.Servlet.Request
+    ( HttpServletRequest
+    , ServletRequest
+    , makeWaiRequest ) where
 import qualified Network.Wai.Internal as W
 import qualified Network.HTTP.Types as H
 import Network.Socket (SockAddr (SockAddrInet,SockAddrInet6),
