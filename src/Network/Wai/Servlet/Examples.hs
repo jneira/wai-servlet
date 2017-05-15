@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+module Network.Wai.Servlet.Examples where
 import Java
 import Network.Wai
 import Network.HTTP.Types                 (status200)
@@ -73,5 +74,5 @@ servShowReq = makeServiceMethod appShowReq
 
 foreign export java "service" servShowReq :: DefaultWaiServletApplication
 
-main = undefined --run 3000 application
+
 
