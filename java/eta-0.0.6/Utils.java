@@ -5,13 +5,12 @@ import eta.runtime.io.MemoryManager;
 import java.io.InputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-
-public class Utils2 {
-
-    public static byte[] toByteArray(long ptr, int offset, int length) {
-        ByteBuffer buf = MemoryManager.getBoundedBuffer(ptr);
-        buf.position(buf.position() + offset);
-        buf.limit(buf.position() + length);
+    
+public class Utils {
+    public static byte[] toByteArray(ByteBuffer ptr, int offset, int length) {
+        ByteBuffer buf=ptr.duplicate();
+        buf=MemoryManager.bufSetOffset(buf,offset);
+        buf=MemoryManager.bufSetLimit(buf,length);
         byte[] b = new byte[buf.remaining()];
         buf.get(b);
         return b;
@@ -22,12 +21,9 @@ public class Utils2 {
         byte[] bytes=toByteArray(is);
         return ByteBuffer.wrap(bytes);
     }
-
     // from apache.commons.io.IOUtils
     private static final int EOF = -1;
-
     private static final int DEFAULT_BUFFER_SIZE = 1024 * 4;
-
     public static byte[] toByteArray (InputStream input) throws
         IOException {
         byte[] buffer=new byte[DEFAULT_BUFFER_SIZE];
@@ -40,7 +36,7 @@ public class Utils2 {
                 count += n;
             }
             return output.toByteArray();
-        }
+        } 
     }
     public static int size(ByteBuffer buf) {
         return buf.remaining();

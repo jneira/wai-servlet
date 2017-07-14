@@ -1,5 +1,5 @@
 {-# LANGUAGE MagicHash,TypeFamilies,DataKinds,FlexibleContexts,
-             MultiParamTypeClasses,TypeOperators,CPP #-}
+             MultiParamTypeClasses,TypeOperators #-}
 module Network.Wai.Servlet.Response
     ( HttpServletResponse
     , ServletResponse
@@ -99,13 +99,8 @@ writeLazyByteString BSLInt.Empty = return ()
 writeLazyByteString (BSLInt.Chunk c cs) =
   writeStrictByteString c >> writeLazyByteString cs
 
-#if ETA_VERSION >= 9
-foreign import java unsafe "@static network.wai.servlet.Utils2.toByteArray"
-   toByteArray :: Ptr Word8 -> Int -> Int -> JByteArray
-#else
 foreign import java unsafe "@static network.wai.servlet.Utils.toByteArray"
    toByteArray :: Ptr Word8 -> Int -> Int -> JByteArray
-#endif
 
 writeStrictByteString :: (a <: ServletResponse) =>
                          BS.ByteString  -> Java a ()
