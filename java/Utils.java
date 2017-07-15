@@ -23,7 +23,7 @@ public class Utils {
         long address = MemoryManager.allocateBuffer(bytes.length,false);
         ByteBuffer buf = MemoryManager.getBoundedBuffer(address);
         buf.put(bytes);
-        buf.rewind();
+        buf.clear();
         return address;
     }
 
