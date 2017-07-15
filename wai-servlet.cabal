@@ -14,7 +14,7 @@ cabal-version:       >=1.10
 source-repository this
   type:              git
   location:          https://github.com/jneira/wai-servlet 
-  tag:               0.1.0.0
+  tag:               0.1.1.0
 library
   exposed-modules:     Network.Wai.Servlet
                      , Network.Wai.Servlet.Examples 
