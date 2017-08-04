@@ -46,6 +46,12 @@ public class Utils {
             return output.toByteArray();
         }
     }
+
+    public static int size(long address) {
+        ByteBuffer buf = MemoryManager.getBoundedBuffer(address);
+        return size(buf);
+    }
+    
     public static int size(ByteBuffer buf) {
         return buf.remaining();
     }
