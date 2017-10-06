@@ -20,7 +20,7 @@ public class Utils {
     public static long toByteBuffer(InputStream is)
       throws IOException {
         byte[] bytes=toByteArray(is);
-        long address = MemoryManager.allocateBuffer(bytes.length,false);
+        long address = MemoryManager.allocateBuffer(bytes.length,true);
         ByteBuffer buf = MemoryManager.getBoundedBuffer(address);
         buf.put(bytes);
         buf.clear();
