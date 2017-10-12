@@ -55,33 +55,26 @@ foreign import java unsafe "@interface getBufferSize" getBufferSize ::
 
 updateHttpServletResponse :: HttpServletRequest -> HttpServletResponse ->
                              Wai.Response -> IO Wai.ResponseReceived
-updateHttpServletResponse servReq servResp waiResp = case waiResp of
-
-  (WaiIn.ResponseBuilder status headers builder) -> do
-    withServResp $ do
+updateHttpServletResponse servReq servResp waiResp = javaWith servResp $ do
+  case waiResp of
+    (WaiIn.ResponseBuilder status headers builder) -> do
       setStatusAndHeaders status headers
       buffSize <- getBufferSize
       when (hasBody status) $ 
-           writeLazyByteString $ toLazyByteString buffSize builder
-    return WaiIn.ResponseReceived
+        writeLazyByteString $ toLazyByteString buffSize builder
 
-  (WaiIn.ResponseStream status headers body) -> do
-    withServResp $ do
-        setStatusAndHeaders status headers
-    when (hasBody status) $ 
-      body (sendChunk servResp) (flush servResp)
-    return WaiIn.ResponseReceived
-
-  respFile@(WaiIn.ResponseFile status headers filePath filePart) -> do
-    withServResp $ do
+    (WaiIn.ResponseStream status headers body) -> do
       setStatusAndHeaders status headers
-      serveFile servReq respFile 
-    return WaiIn.ResponseReceived
+      when (hasBody status) $ 
+        io $ body (sendChunk servResp) (flush servResp)
+
+    (WaiIn.ResponseFile status headers filePath filePart) -> 
+      serveFile status headers filePath filePart
                                              
-  (WaiIn.ResponseRaw rawStream response) ->
-    error "ResponseRaw not supported by wai-servlet"
-  where withServResp =  javaWith servResp
-    
+    (WaiIn.ResponseRaw rawStream response) ->
+      error "ResponseRaw not supported by wai-servlet"
+  return WaiIn.ResponseReceived
+
 setStatusAndHeaders :: HTTP.Status -> [HTTP.Header] ->
                        Java HttpServletResponse ()  
 setStatusAndHeaders status headers = do
@@ -124,6 +117,6 @@ sendChunk resp builder = javaWith resp $ do
 flush :: (a <: ServletResponse) => a -> IO ()
 flush resp = javaWith resp flushBuffer
 
-serveFile :: (resp <: ServletResponse, req <: ServletRequest) =>
-  req -> WaiIn.Response -> Java resp ()
+serveFile :: (resp <: ServletResponse) => HTTP.Status -> [HTTP.Header] ->
+  FilePath -> Maybe WaiIn.FilePart -> Java resp ()
 serveFile = error "serveFile not implemented yet"
