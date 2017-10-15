@@ -1,5 +1,7 @@
 {-# LANGUAGE MagicHash,TypeFamilies,DataKinds,FlexibleContexts,
-             MultiParamTypeClasses,TypeOperators,CPP #-}
+             MultiParamTypeClasses,TypeOperators,RecordWildCards,
+             OverloadedStrings, CPP #-}
+
 module Network.Wai.Servlet.Response
     ( HttpServletResponse
     , ServletResponse
@@ -11,20 +13,23 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Internal as BSLInt
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Internal as BSInt
-import qualified Data.ByteString.Char8 as BSChar (unpack)
+import qualified Data.ByteString.Char8 as BSChar (unpack,pack)
 import Foreign.ForeignPtr (ForeignPtr,withForeignPtr)
 import Foreign.Ptr (Ptr)
 import Data.Word (Word8)
 import qualified Network.Wai as Wai
 import qualified Network.Wai.Internal as WaiIn
 import qualified Network.HTTP.Types as HTTP
+import qualified Network.HTTP.Types.Header as HTTP
 import Network.Wai.Servlet.Request
+import Network.Wai.Servlet.File
 import Java
 #ifdef INTEROP
 import qualified Interop.Java.IO as JIO
 #else
 import qualified Java.IO as JIO
 #endif
+import Java.Exception
 
 data {-# CLASS "javax.servlet.ServletResponse" #-}
   ServletResponse = ServletResponse (Object# ServletResponse)
@@ -68,7 +73,7 @@ updateHttpServletResponse servReq servResp waiResp = javaWith servResp $ do
       when (hasBody status) $ 
         io $ body (sendChunk servResp) (flush servResp)
 
-    (WaiIn.ResponseFile status headers filePath filePart) -> 
+    (WaiIn.ResponseFile status headers filePath filePart) -> do
       serveFile status headers filePath filePart
                                              
     (WaiIn.ResponseRaw rawStream response) ->
@@ -117,6 +122,23 @@ sendChunk resp builder = javaWith resp $ do
 flush :: (a <: ServletResponse) => a -> IO ()
 flush resp = javaWith resp flushBuffer
 
-serveFile :: (resp <: ServletResponse) => HTTP.Status -> [HTTP.Header] ->
-  FilePath -> Maybe WaiIn.FilePart -> Java resp ()
-serveFile = error "serveFile not implemented yet"
+serveFile :: HTTP.Status -> HTTP.ResponseHeaders -> FilePath ->
+             Maybe WaiIn.FilePart -> Java HttpServletResponse ()
+serveFile status hdrs path (Just part@(WaiIn.FilePart off len size )) = do
+  os <- getOutputStream
+  let [off',len',size'] = map fromIntegral [off,len,size]
+      mbEx = sendFile os path off' len' size'
+  case mbEx of
+    Nothing -> do
+      setStatusAndHeaders status hdrs'
+    Just ex -> serveFileError ex path part 
+  where hdrs' = addContentHeadersForFilePart hdrs part
+
+serveFileError :: JException -> FilePath -> WaiIn.FilePart ->
+                  Java HttpServletResponse ()
+serveFileError = error "Not implemented"
+
+foreign import java unsafe "@static network.wai.servlet.Utils.sendFile"
+   sendFile :: (os <: JIO.OutputStream) =>
+                os -> String -> Int64 -> Int64 -> Int64 -> Maybe JException
+
