@@ -124,19 +124,23 @@ flush resp = javaWith resp flushBuffer
 
 serveFile :: HTTP.Status -> HTTP.ResponseHeaders -> FilePath ->
              Maybe WaiIn.FilePart -> Java HttpServletResponse ()
-serveFile status hdrs path (Just part@(WaiIn.FilePart off len size )) = do
+-- Sophisticated WAI applications.
+-- We respect status. status MUST be a proper value.
+serveFile status hdrs path (Just part) = do
+  let hdrs' = addContentHeadersForFilePart hdrs part
+  serveFile2XX status hdrs' path part
+-- Simple WAI applications.
+-- Status is ignored
+serveFile _ hdrs path Nothing = undefined
+
+serveFile2XX :: HTTP.Status -> HTTP.ResponseHeaders -> FilePath ->
+                WaiIn.FilePart -> Java HttpServletResponse ()
+serveFile2XX status hdrs path (WaiIn.FilePart off len size) = do
   os <- getOutputStream
   let [off',len',size'] = map fromIntegral [off,len,size]
-      mbEx = sendFile os path off' len' size'
-  case mbEx of
-    Nothing -> do
-      setStatusAndHeaders status hdrs'
-    Just ex -> serveFileError ex path part 
-  where hdrs' = addContentHeadersForFilePart hdrs part
-
-serveFileError :: JException -> FilePath -> WaiIn.FilePart ->
-                  Java HttpServletResponse ()
-serveFileError = error "Not implemented"
+  setStatusAndHeaders status hdrs
+  let _ = sendFile os path off' len' size'
+  return ()
 
 foreign import java unsafe "@static network.wai.servlet.Utils.sendFile"
    sendFile :: (os <: JIO.OutputStream) =>
