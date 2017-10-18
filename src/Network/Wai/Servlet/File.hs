@@ -1,14 +1,45 @@
-{-# LANGUAGE BangPatterns, OverloadedStrings #-}
+{-# LANGUAGE MagicHash, TypeFamilies, DataKinds, FlexibleContexts,
+             MultiParamTypeClasses, TypeOperators, BangPatterns,
+             OverloadedStrings #-}
 module Network.Wai.Servlet.File where
 
+import Control.Exception as E
 import qualified Data.ByteString.Char8 as B (pack)
 import Data.ByteString (ByteString)
 import qualified Network.HTTP.Types as H
 import qualified Network.HTTP.Types.Header as H
+import Network.HTTP.Date
 import Network.Wai
 import Numeric (showInt)
-
+import Java
+import Java.IO
 -- Copied from https://github.com/yesodweb/wai/blob/master/warp/Network/Wai/Handler/Warp/File.hs
+
+-- | File information.
+data FileInfo = FileInfo {
+    fileInfoName :: !FilePath
+  , fileInfoSize :: !Integer
+  , fileInfoTime :: HTTPDate   -- ^ Modification time
+  , fileInfoDate :: ByteString -- ^ Modification time in the GMT format
+  } deriving (Eq, Show)
+
+foreign import java unsafe "@new" newFile  :: String -> Java a File
+
+getInfo :: FilePath -> IO FileInfo
+getInfo path =  java $ do
+  file <- newFile path
+  withObject file $ do 
+    regular <- fmap not isDirectory
+    readable <- canRead
+    if (regular && readable) then do
+      time <- fmap (epochTimeToHTTPDate . fromIntegral) lastModified
+      size <- fmap fromIntegral $ Java.IO.length
+      let date = formatHTTPDate time
+      return $ FileInfo { fileInfoName = path
+                        , fileInfoSize = size
+                        , fileInfoTime = time
+                        , fileInfoDate = date }
+    else io $ throwIO (userError "File:getInfo")
 
 contentRangeHeader :: Integer -> Integer -> Integer -> H.Header
 contentRangeHeader beg end total = (H.hContentRange, range)

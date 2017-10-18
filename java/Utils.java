@@ -8,6 +8,7 @@ import java.io.OutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.*;
+import java.nio.file.attribute.*;
 
 public class Utils {
 
@@ -59,20 +60,19 @@ public class Utils {
         return buf.remaining();
     }
 
-    public static Exception sendFile(OutputStream os, String pathStr,
-                                     long offSet, long len, long size) {
+    public static void sendFile(OutputStream os, String pathStr,
+        long offSet, long len, long size) throws IOException {
+
         Path path = Paths.get(pathStr);
         try (InputStream input = new BufferedInputStream(
                                      Files.newInputStream(path))) {
             copy(input, os, size, offSet, len);
-        } catch (Exception e) {
-            return e;
         }
-        return null;
     }
 
     private static void copy(InputStream input, OutputStream output,
-                             long inputSize, long start, long length) throws IOException {
+        long inputSize, long start, long length) throws IOException {
+
         byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
         int read;
         

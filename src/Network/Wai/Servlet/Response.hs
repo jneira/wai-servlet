@@ -139,10 +139,9 @@ serveFile2XX status hdrs path (WaiIn.FilePart off len size) = do
   os <- getOutputStream
   let [off',len',size'] = map fromIntegral [off,len,size]
   setStatusAndHeaders status hdrs
-  let _ = sendFile os path off' len' size'
-  return ()
+  sendFile os path off' len' size'
 
 foreign import java unsafe "@static network.wai.servlet.Utils.sendFile"
    sendFile :: (os <: JIO.OutputStream) =>
-                os -> String -> Int64 -> Int64 -> Int64 -> Maybe JException
+                os -> String -> Int64 -> Int64 -> Int64 -> Java a ()
 
