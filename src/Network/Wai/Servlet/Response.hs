@@ -131,8 +131,18 @@ serveFile status hdrs path (Just part) = do
   serveFile2XX status hdrs' path part
 -- Simple WAI applications.
 -- Status is ignored
-serveFile _ hdrs path Nothing = undefined
-
+serveFile _ hdrs path Nothing = undefined {- do
+  efinfo <- E.try $ getFileInfo path
+  case efinfo of
+    Left (_ex :: JException) ->
+#ifdef WAI_SERVLET_DEBUG
+      print _ex >>
+#endif
+      serveFile404 hdrs
+    Right finfo -> case conditionalRequest finfo hs0 idxhdr of
+      WithoutBody s         -> sendRsp conn ii ver s hs0 RspNoBody
+      WithBody s hs beg len -> sendRspFile2XX conn ii ver s hs path beg len isHead hook
+-}
 serveFile2XX :: HTTP.Status -> HTTP.ResponseHeaders -> FilePath ->
                 WaiIn.FilePart -> Java HttpServletResponse ()
 serveFile2XX status hdrs path (WaiIn.FilePart off len size) = do
@@ -140,6 +150,9 @@ serveFile2XX status hdrs path (WaiIn.FilePart off len size) = do
   let [off',len',size'] = map fromIntegral [off,len,size]
   setStatusAndHeaders status hdrs
   sendFile os path off' len' size'
+
+serveFile404 :: HTTP.ResponseHeaders -> Java HttpServletResponse ()
+serveFile404 = undefined
 
 foreign import java unsafe "@static network.wai.servlet.Utils.sendFile"
    sendFile :: (os <: JIO.OutputStream) =>

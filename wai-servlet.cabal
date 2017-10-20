@@ -1,5 +1,5 @@
 name:                wai-servlet
-version:             0.1.2.0
+version:             0.1.3.0
 -- synopsis:            
 -- description:         
 license:             BSD3
@@ -14,7 +14,12 @@ cabal-version:       >=1.10
 source-repository this
   type:              git
   location:          https://github.com/jneira/wai-servlet 
-  tag:               0.1.2.0
+  tag:               0.1.3.0
+
+Flag wai-servlet-debug
+    Description: print debug output. not suitable for production
+    Default:     False
+
 library
   exposed-modules:     Network.Wai.Servlet
                      , Network.Wai.Servlet.Examples 
@@ -42,4 +47,4 @@ library
     java-sources:      java/Utils.java
   else
     java-sources:      java/eta-0.0.6/Utils.java
-  eta-options:         -g -ddump-stg -ddump-cg-trace -ddump-to-file
+
