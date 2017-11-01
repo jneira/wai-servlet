@@ -41,6 +41,15 @@ getInfo path =  java $ do
                         , fileInfoDate = date }
     else io $ throwIO (userError "File:getInfo")
 
+data RspFileInfo = WithoutBody H.Status
+                 | WithBody H.Status H.ResponseHeaders Integer Integer
+                 deriving (Eq,Show)
+
+conditionalRequest :: FileInfo
+                   -> H.ResponseHeaders -> [Header]
+                   -> RspFileInfo
+conditionalRequest = undefined
+
 contentRangeHeader :: Integer -> Integer -> Integer -> H.Header
 contentRangeHeader beg end total = (H.hContentRange, range)
   where
