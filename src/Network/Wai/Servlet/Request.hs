@@ -3,7 +3,9 @@
 module Network.Wai.Servlet.Request
     ( HttpServletRequest
     , ServletRequest
-    , makeWaiRequest ) where
+    , makeWaiRequest
+    , requestHeaders
+    , requestMethod ) where
 import qualified Network.Wai.Internal as W
 import qualified Network.HTTP.Types as H
 import Network.Socket (SockAddr (SockAddrInet,SockAddrInet6),

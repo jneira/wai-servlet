@@ -1,12 +1,13 @@
 {-# LANGUAGE MagicHash,TypeFamilies,DataKinds,FlexibleContexts,
              MultiParamTypeClasses,TypeOperators,RecordWildCards,
-             OverloadedStrings, CPP #-}
+             OverloadedStrings,CPP,ScopedTypeVariables #-}
 
 module Network.Wai.Servlet.Response
     ( HttpServletResponse
     , ServletResponse
     , updateHttpServletResponse ) where
 import Control.Monad (forM_,when)
+import Control.Exception as E
 import qualified Blaze.ByteString.Builder as Blaze
 import qualified Data.CaseInsensitive as CI (original)
 import qualified Data.ByteString.Lazy as BSL
@@ -65,17 +66,18 @@ updateHttpServletResponse servReq servResp waiResp = javaWith servResp $ do
     (WaiIn.ResponseBuilder status headers builder) ->
       sendRspBuilder status headers builder
 
-    (WaiIn.ResponseStream status headers body) ->
-      sendRspStream status headers body 
+    (WaiIn.ResponseStream status headers body) -> 
+      io $ sendRspStream servResp status headers body 
 
     (WaiIn.ResponseFile status headers filePath filePart) -> do
-      sendRspFile status headers filePath filePart
+      let isHead = requestMethod servReq == HTTP.methodHead 
+      sendRspFile status headers (requestHeaders servReq) filePath filePart isHead
                                              
     (WaiIn.ResponseRaw rawStream response) ->
       error "ResponseRaw not supported by wai-servlet"
   return WaiIn.ResponseReceived
 
-sendRspBuilder :: HTTP.Status -> [HTTP.Header] -> Blaze.Builder
+sendRspBuilder :: HTTP.Status -> [HTTP.Header] -> Blaze.Builder ->
                   Java HttpServletResponse ()  
 sendRspBuilder status headers builder = do
   setStatusAndHeaders status headers
@@ -83,12 +85,22 @@ sendRspBuilder status headers builder = do
   when (hasBody status) $ 
     writeLazyByteString $ toLazyByteString buffSize builder
 
-sendRspStream :: HTTP.Status -> [HTTP.Header] -> StreamingBody
-                  Java HttpServletResponse ()  
-sendRspStream status headers body = do
-      setStatusAndHeaders status headers
-      when (hasBody status) $ 
-        io $ body (sendChunk servResp) (flush servResp)
+sendRspStream :: HttpServletResponse -> HTTP.Status -> [HTTP.Header] -> WaiIn.StreamingBody ->
+                 IO ()  
+sendRspStream servResp status headers body = do
+  javaWith servResp $ do
+        setStatusAndHeaders status headers
+  when (hasBody status) $ 
+    body (sendChunk servResp) (flush servResp)
+
+sendChunk :: (a <: ServletResponse) => a -> Blaze.Builder -> IO ()
+sendChunk resp builder = javaWith resp $ do
+  buffSize <- getBufferSize
+  let bs = toLazyByteString buffSize builder
+  writeLazyByteString bs
+
+flush :: (a <: ServletResponse) => a -> IO ()
+flush resp = javaWith resp flushBuffer
 
 setStatusAndHeaders :: HTTP.Status -> [HTTP.Header] -> Java HttpServletResponse ()  
 setStatusAndHeaders status headers = do
@@ -122,43 +134,35 @@ writeStrictByteString bss = do
         getByteArray = withForeignPtr fptr $ \ ptr -> 
                          return $ toByteArray ptr offset length
 
-sendChunk :: (a <: ServletResponse) => a -> Blaze.Builder -> IO ()
-sendChunk resp builder = javaWith resp $ do
-  buffSize <- getBufferSize
-  let bs = toLazyByteString buffSize builder
-  writeLazyByteString bs
-
-flush :: (a <: ServletResponse) => a -> IO ()
-flush resp = javaWith resp flushBuffer
-
-sendRspFile :: HTTP.Status -> HTTP.ResponseHeaders -> FilePath ->
-               Maybe WaiIn.FilePart -> Java HttpServletResponse ()
+sendRspFile :: HTTP.Status -> HTTP.ResponseHeaders -> HTTP.RequestHeaders -> FilePath ->
+               Maybe WaiIn.FilePart -> Bool -> Java HttpServletResponse ()
 -- Sophisticated WAI applications.
 -- We respect status. status MUST be a proper value.
-sendRspFile status hdrs path (Just part) = do
+sendRspFile status hdrs _ path (Just part) isHead = do
   let hdrs' = addContentHeadersForFilePart hdrs part
-  serveFile2XX status hdrs' path part
+  sendRspFile2XX status hdrs' path part isHead
 -- Simple WAI applications.
 -- Status is ignored
-sendRspFile _ hdrs path Nothing = do
-  efinfo <- E.try $ getFileInfo path
+sendRspFile _ hdrs reqhdrs path Nothing isHead = do
+  efinfo <- io $ E.try $ getFileInfo path
   case efinfo of
-    Left (_ex :: JException) ->
+    Left (_ex :: JException) -> 
 #ifdef WAI_SERVLET_DEBUG
-      print _ex >>
+      io $ print _ex >>
 #endif
       sendRspFile404 hdrs
-    Right finfo -> case conditionalRequest finfo hdrs of
-      WithoutBody s         -> sendRsp conn ii ver s hdrs RspNoBody
-      WithBody s hs part isHead -> sendRspFile2XX s hs path part isHead
+    Right finfo -> case conditionalRequest finfo hdrs reqhdrs of
+      WithoutBody s         -> sendRspBuilder s hdrs mempty
+      WithBody s hs part    -> sendRspFile2XX s hs path part isHead
 
 sendRspFile2XX :: HTTP.Status -> HTTP.ResponseHeaders -> FilePath ->
-                WaiIn.FilePart -> Java HttpServletResponse ()
-sendRspFile2XX status hdrs path (WaiIn.FilePart off len size) = do
-  os <- getOutputStream
-  let [off',len',size'] = map fromIntegral [off,len,size]
+                WaiIn.FilePart -> Bool -> Java HttpServletResponse ()
+sendRspFile2XX status hdrs path (WaiIn.FilePart off len size) isHead = do
   setStatusAndHeaders status hdrs
-  sendFile os path off' len' size'
+  when isHead $ do
+    os <- getOutputStream
+    let [off',len',size'] = map fromIntegral [off,len,size]
+    sendFile os path off' len' size'
 
 sendRspFile404 :: HTTP.ResponseHeaders -> Java HttpServletResponse ()
 sendRspFile404 = undefined

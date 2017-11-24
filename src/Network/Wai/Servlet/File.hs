@@ -1,6 +1,6 @@
 {-# LANGUAGE MagicHash, TypeFamilies, DataKinds, FlexibleContexts,
              MultiParamTypeClasses, TypeOperators, BangPatterns,
-             OverloadedStrings #-}
+             OverloadedStrings, StandaloneDeriving #-}
 module Network.Wai.Servlet.File where
 
 import Control.Exception as E
@@ -12,7 +12,7 @@ import Network.HTTP.Date
 import Network.Wai
 import Numeric (showInt)
 import Java
-import Java.IO
+import Interop.Java.IO as JIO
 -- Copied from https://github.com/yesodweb/wai/blob/master/warp/Network/Wai/Handler/Warp/File.hs
 
 -- | File information.
@@ -25,15 +25,15 @@ data FileInfo = FileInfo {
 
 foreign import java unsafe "@new" newFile  :: String -> Java a File
 
-getInfo :: FilePath -> IO FileInfo
-getInfo path =  java $ do
+getFileInfo :: FilePath -> IO FileInfo
+getFileInfo path =  java $ do
   file <- newFile path
   withObject file $ do 
     regular <- fmap not isDirectory
     readable <- canRead
     if (regular && readable) then do
       time <- fmap (epochTimeToHTTPDate . fromIntegral) lastModified
-      size <- fmap fromIntegral $ Java.IO.length
+      size <- fmap fromIntegral $ JIO.length
       let date = formatHTTPDate time
       return $ FileInfo { fileInfoName = path
                         , fileInfoSize = size
@@ -41,12 +41,14 @@ getInfo path =  java $ do
                         , fileInfoDate = date }
     else io $ throwIO (userError "File:getInfo")
 
+deriving instance Eq FilePart
+
 data RspFileInfo = WithoutBody H.Status
-                 | WithBody H.Status H.ResponseHeaders Integer Integer
+                 | WithBody H.Status H.ResponseHeaders FilePart
                  deriving (Eq,Show)
 
 conditionalRequest :: FileInfo
-                   -> H.ResponseHeaders -> [Header]
+                   -> H.ResponseHeaders -> H.RequestHeaders
                    -> RspFileInfo
 conditionalRequest = undefined
 
