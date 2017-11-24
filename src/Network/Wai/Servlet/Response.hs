@@ -8,6 +8,8 @@ module Network.Wai.Servlet.Response
     , updateHttpServletResponse ) where
 import Control.Monad (forM_,when)
 import Control.Exception as E
+import Data.Function (on)
+import Data.List (deleteBy)
 import qualified Blaze.ByteString.Builder as Blaze
 import qualified Data.CaseInsensitive as CI (original)
 import qualified Data.ByteString.Lazy as BSL
@@ -165,7 +167,15 @@ sendRspFile2XX status hdrs path (WaiIn.FilePart off len size) isHead = do
     sendFile os path off' len' size'
 
 sendRspFile404 :: HTTP.ResponseHeaders -> Java HttpServletResponse ()
-sendRspFile404 = undefined
+sendRspFile404 hdrs = sendRspBuilder HTTP.notFound404 hdrs' body
+  where hdrs' = replaceHeader HTTP.hContentType "text/plain; charset=utf-8" hdrs
+        body = Blaze.fromByteString "File not found"
+
+type HeaderValue = BS.ByteString
+
+replaceHeader :: HTTP.HeaderName -> HeaderValue -> HTTP.ResponseHeaders -> HTTP.ResponseHeaders
+replaceHeader k v hdrs = (k,v) : deleteBy ((==) `on` fst) (k,v) hdrs
+
 
 foreign import java unsafe "@static network.wai.servlet.Utils.sendFile"
    sendFile :: (os <: JIO.OutputStream) =>
