@@ -51,14 +51,13 @@ servState = makeServiceMethod $ app
 servStream :: DefaultWaiServletApplication
 servStream = makeServiceMethod appStream
 
-appFile :: Application
-appFile _ respond = respond $
+appFile :: FilePath -> Application
+appFile path _ respond = respond $
   responseFile status200 [("Content-Type", "text/html")]
-    "index.html"
-    Nothing
+    path Nothing
 
 servFile :: DefaultWaiServletApplication
-servFile = makeServiceMethod appFile
+servFile = makeServiceMethod $ appFile "index.html"
 
 appShowReq :: Application
 appShowReq req respond = do

@@ -41,7 +41,9 @@ getFileInfo path =  java $ do
                         , fileInfoSize = size
                         , fileInfoTime = time
                         , fileInfoDate = date }
-    else io $ throwIO (userError "File:getInfo")
+    else do
+      absolutePath <- file <.> getAbsolutePath
+      io $ throwIO (userError $ "File:getInfo: " ++ absolutePath)
 
 deriving instance Eq FilePart
 
