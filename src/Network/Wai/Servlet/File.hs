@@ -15,7 +15,7 @@ import Network.Wai
 import Numeric (showInt)
 import Java
 import Interop.Java.IO as JIO
--- Copied from https://github.com/yesodweb/wai/blob/master/warp/Network/Wai/Handler/Warp/File.hs
+-- Adapted from https://github.com/yesodweb/wai/blob/master/warp/Network/Wai/Handler/Warp/File.hs
 
 -- | File information.
 data FileInfo = FileInfo {
