@@ -47,4 +47,6 @@ library
     java-sources:      java/Utils.java
   else
     java-sources:      java/eta-0.0.6/Utils.java
+  if flag(wai-servlet-debug)
+    cpp-options: -DWAI_SERVLET__DEBUG
 
