@@ -4,6 +4,8 @@
 module Network.Wai.Servlet.File where
 
 import Control.Exception as E
+import Control.Applicative ((<|>))
+import Data.Maybe (fromMaybe)
 import qualified Data.ByteString.Char8 as B (pack)
 import Data.ByteString (ByteString)
 import qualified Network.HTTP.Types as H
@@ -50,7 +52,80 @@ data RspFileInfo = WithoutBody H.Status
 conditionalRequest :: FileInfo
                    -> H.ResponseHeaders -> H.RequestHeaders
                    -> RspFileInfo
-conditionalRequest = undefined
+conditionalRequest finfo hs0 reqidx = case condition of
+    nobody@(WithoutBody _) -> nobody
+    WithBody s _ (FilePart off len size) ->
+      let !hs = (H.hLastModified,date) : addContentHeaders hs0 off len size
+      in WithBody s hs (FilePart off len size)
+  where
+    !mtime = fileInfoTime finfo
+    !size  = fileInfoSize finfo
+    !date  = fileInfoDate finfo
+    !mcondition = ifmodified    reqidx size mtime
+              <|> ifunmodified  reqidx size mtime
+              <|> ifrange'       reqidx size mtime
+    !condition = fromMaybe (unconditional reqidx size) mcondition
+
+----------------------------------------------------------------
+
+ifModifiedSince :: H.RequestHeaders -> Maybe HTTPDate
+ifModifiedSince reqidx = lookup H.hIfModifiedSince reqidx >>= parseHTTPDate
+
+ifUnmodifiedSince :: H.RequestHeaders -> Maybe HTTPDate
+ifUnmodifiedSince reqidx = lookup H.hIfUnmodifiedSince reqidx >>= parseHTTPDate
+
+ifRange :: H.RequestHeaders -> Maybe HTTPDate
+ifRange reqidx =  lookup H.hIfRange reqidx >>= parseHTTPDate
+
+----------------------------------------------------------------
+
+ifmodified :: H.RequestHeaders -> Integer -> HTTPDate -> Maybe RspFileInfo
+ifmodified reqidx size mtime = do
+    date <- ifModifiedSince reqidx
+    return $ if date /= mtime
+             then unconditional reqidx size
+             else WithoutBody H.notModified304
+
+ifunmodified :: H.RequestHeaders -> Integer -> HTTPDate -> Maybe RspFileInfo
+ifunmodified reqidx size mtime = do
+    date <- ifUnmodifiedSince reqidx
+    return $ if date == mtime
+             then unconditional reqidx size
+             else WithoutBody H.preconditionFailed412
+
+ifrange' :: H.RequestHeaders -> Integer -> HTTPDate -> Maybe RspFileInfo
+ifrange' reqidx size mtime = do
+    date <- ifRange reqidx
+    rng  <- lookup H.hRange reqidx
+    return $ if date == mtime
+             then parseRange rng size
+             else WithBody H.ok200 [] (FilePart 0 size size)
+
+unconditional :: H.RequestHeaders -> Integer -> RspFileInfo
+unconditional reqidx size = case lookup H.hRange reqidx of
+    Nothing  -> WithBody H.ok200 [] (FilePart 0 size size)
+    Just rng -> parseRange rng size
+
+----------------------------------------------------------------
+
+parseRange :: ByteString -> Integer -> RspFileInfo
+parseRange rng size = case H.parseByteRanges rng of
+    Nothing    -> WithoutBody H.requestedRangeNotSatisfiable416
+    Just []    -> WithoutBody H.requestedRangeNotSatisfiable416
+    Just (r:_) -> let (!beg, !end) = checkRange r size
+                      !len = end - beg + 1
+                      s = if beg == 0 && end == size - 1 then
+                              H.ok200
+                            else
+                              H.partialContent206
+                  in WithBody s [] (FilePart beg len size)
+
+checkRange :: H.ByteRange -> Integer -> (Integer, Integer)
+checkRange (H.ByteRangeFrom   beg)     size = (beg, size - 1)
+checkRange (H.ByteRangeFromTo beg end) size = (beg,  min (size - 1) end)
+checkRange (H.ByteRangeSuffix count) size = (max 0 (size - count), size - 1)
+
+----------------------------------------------------------------
 
 contentRangeHeader :: Integer -> Integer -> Integer -> H.Header
 contentRangeHeader beg end total = (H.hContentRange, range)

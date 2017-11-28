@@ -6,7 +6,7 @@ module Network.Wai.Servlet.Response
     ( HttpServletResponse
     , ServletResponse
     , updateHttpServletResponse ) where
-import Control.Monad (forM_,when)
+import Control.Monad (forM_,when,unless)
 import Control.Exception as E
 import Data.Function (on)
 import Data.List (deleteBy)
@@ -161,7 +161,7 @@ sendRspFile2XX :: HTTP.Status -> HTTP.ResponseHeaders -> FilePath ->
                 WaiIn.FilePart -> Bool -> Java HttpServletResponse ()
 sendRspFile2XX status hdrs path (WaiIn.FilePart off len size) isHead = do
   setStatusAndHeaders status hdrs
-  when isHead $ do
+  unless isHead $ do
     os <- getOutputStream
     let [off',len',size'] = map fromIntegral [off,len,size]
     sendFile os path off' len' size'
@@ -173,7 +173,7 @@ sendRspFile404 hdrs = sendRspBuilder HTTP.notFound404 hdrs' body
 
 type HeaderValue = BS.ByteString
 
-replaceHeader :: HTTP.HeaderName -> HeaderValue -> HTTP.ResponseHeaders -> HTTP.ResponseHeaders
+replaceHeader :: HTTP.HeaderName -> HeaderValue -> [HTTP.Header] -> [HTTP.Header]
 replaceHeader k v hdrs = (k,v) : deleteBy ((==) `on` fst) (k,v) hdrs
 
 
