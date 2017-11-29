@@ -148,9 +148,9 @@ sendRspFile status hdrs _ path (Just part) isHead = do
 sendRspFile _ hdrs reqhdrs path Nothing isHead = do
   efinfo <- io $ E.try $ getFileInfo path
   case efinfo of
-    Left (_ex :: JException) -> 
+    Left (_ex :: E.IOException) -> 
 #ifdef WAI_SERVLET_DEBUG
-      io $ print _ex >>
+      (io $ print _ex) >>
 #endif
       sendRspFile404 hdrs
     Right finfo -> case conditionalRequest finfo hdrs reqhdrs of
