@@ -5,6 +5,7 @@ module Network.Wai.Servlet.File where
 
 import Control.Exception as E
 import Control.Applicative ((<|>))
+import Data.Word (Word64)
 import Data.Maybe (fromMaybe)
 import qualified Data.ByteString.Char8 as B (pack)
 import Data.ByteString (ByteString)
@@ -34,7 +35,9 @@ getFileInfo path =  java $ do
     regular <- fmap not isDirectory
     readable <- canRead
     if (regular && readable) then do
-      time <- fmap (epochTimeToHTTPDate . fromIntegral) lastModified
+      lastMod <- lastModified
+      let epoch = fromIntegral $ lastMod `div` 1000
+          time  = epochTimeToHTTPDate epoch
       size <- fmap fromIntegral $ JIO.length
       let date = formatHTTPDate time
       return $ FileInfo { fileInfoName = path
