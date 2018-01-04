@@ -1,5 +1,5 @@
 {-# LANGUAGE MagicHash,TypeFamilies,DataKinds,FlexibleContexts,
-             OverloadedStrings, TypeOperators #-}
+             OverloadedStrings, TypeOperators,CPP #-}
 module Network.Wai.Servlet.Request
     ( HttpServletRequest
     , ServletRequest
@@ -20,7 +20,9 @@ import Data.List (intercalate)
 import Data.Maybe (fromMaybe,catMaybes)
 import Control.Monad (when)
 import Java
-import qualified Java.IO as JIO
+#ifdef INTEROP
+import qualified Interop.Java.IO as JIO
+#endif
 
 data {-# CLASS "javax.servlet.ServletRequest" #-}
   ServletRequest = ServletRequest (Object# ServletRequest)
