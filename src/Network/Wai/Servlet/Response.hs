@@ -1,5 +1,5 @@
 {-# LANGUAGE MagicHash,TypeFamilies,DataKinds,FlexibleContexts,
-             MultiParamTypeClasses,TypeOperators #-}
+             MultiParamTypeClasses,TypeOperators,CPP #-}
 module Network.Wai.Servlet.Response
     ( HttpServletResponse
     , ServletResponse
@@ -20,7 +20,9 @@ import qualified Network.Wai.Internal as WaiIn
 import qualified Network.HTTP.Types as HTTP
 import Network.Wai.Servlet.Request
 import Java
-import qualified Java.IO as JIO
+#ifdef INTEROP
+import qualified Interop.Java.IO as JIO
+#endif
 
 data {-# CLASS "javax.servlet.ServletResponse" #-}
   ServletResponse = ServletResponse (Object# ServletResponse)
