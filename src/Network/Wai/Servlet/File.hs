@@ -1,6 +1,6 @@
 {-# LANGUAGE MagicHash, TypeFamilies, DataKinds, FlexibleContexts,
              MultiParamTypeClasses, TypeOperators, BangPatterns,
-             OverloadedStrings, StandaloneDeriving #-}
+             OverloadedStrings, StandaloneDeriving, CPP #-}
 module Network.Wai.Servlet.File where
 
 import Control.Exception as E
@@ -15,7 +15,12 @@ import Network.HTTP.Date
 import Network.Wai
 import Numeric (showInt)
 import Java
+#ifdef INTEROP
 import Interop.Java.IO as JIO
+#else
+import Java.IO as JIO
+#endif
+
 -- Adapted from https://github.com/yesodweb/wai/blob/master/warp/Network/Wai/Handler/Warp/File.hs
 
 -- | File information.
