@@ -1,30 +1,38 @@
 {-# LANGUAGE MagicHash,TypeFamilies,DataKinds,FlexibleContexts,
-             MultiParamTypeClasses,TypeOperators,CPP #-}
+             MultiParamTypeClasses,TypeOperators,RecordWildCards,
+             OverloadedStrings,CPP,ScopedTypeVariables #-}
+
 module Network.Wai.Servlet.Response
     ( HttpServletResponse
     , ServletResponse
     , updateHttpServletResponse ) where
-import Control.Monad (forM_,when)
+import Control.Monad (forM_,when,unless)
+import Control.Exception as E
+import Data.Function (on)
+import Data.List (deleteBy)
 import qualified Blaze.ByteString.Builder as Blaze
 import qualified Data.CaseInsensitive as CI (original)
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Internal as BSLInt
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Internal as BSInt
-import qualified Data.ByteString.Char8 as BSChar (unpack)
+import qualified Data.ByteString.Char8 as BSChar (unpack,pack)
 import Foreign.ForeignPtr (ForeignPtr,withForeignPtr)
 import Foreign.Ptr (Ptr)
 import Data.Word (Word8)
 import qualified Network.Wai as Wai
 import qualified Network.Wai.Internal as WaiIn
 import qualified Network.HTTP.Types as HTTP
+import qualified Network.HTTP.Types.Header as HTTP
 import Network.Wai.Servlet.Request
+import Network.Wai.Servlet.File
 import Java
 #ifdef INTEROP
 import qualified Interop.Java.IO as JIO
 #else
 import qualified Java.IO as JIO
 #endif
+import Java.Exception
 
 data {-# CLASS "javax.servlet.ServletResponse" #-}
   ServletResponse = ServletResponse (Object# ServletResponse)
@@ -55,35 +63,48 @@ foreign import java unsafe "@interface getBufferSize" getBufferSize ::
 
 updateHttpServletResponse :: HttpServletRequest -> HttpServletResponse ->
                              Wai.Response -> IO Wai.ResponseReceived
-updateHttpServletResponse servReq servResp waiResp = case waiResp of
+updateHttpServletResponse servReq servResp waiResp = javaWith servResp $ do
+  case waiResp of
+    (WaiIn.ResponseBuilder status headers builder) ->
+      sendRspBuilder status headers builder
 
-  (WaiIn.ResponseBuilder status headers builder) -> do
-    withServResp $ do
-      setStatusAndHeaders status headers
-      buffSize <- getBufferSize
-      when (hasBody status) $ 
-           writeLazyByteString $ toLazyByteString buffSize builder
-    return WaiIn.ResponseReceived
+    (WaiIn.ResponseStream status headers body) -> 
+      io $ sendRspStream servResp status headers body 
 
-  (WaiIn.ResponseStream status headers body) -> do
-    withServResp $ do
-        setStatusAndHeaders status headers
-    when (hasBody status) $ 
-      body (sendChunk servResp) (flush servResp)
-    return WaiIn.ResponseReceived
-
-  respFile@(WaiIn.ResponseFile status headers filePath filePart) -> do
-    withServResp $ do
-      setStatusAndHeaders status headers
-      serveFile servReq respFile 
-    return WaiIn.ResponseReceived
+    (WaiIn.ResponseFile status headers filePath filePart) -> do
+      let isHead = requestMethod servReq == HTTP.methodHead 
+      sendRspFile status headers (requestHeaders servReq) filePath filePart isHead
                                              
-  (WaiIn.ResponseRaw rawStream response) ->
-    error "ResponseRaw not supported by wai-servlet"
-  where withServResp =  javaWith servResp
-    
-setStatusAndHeaders :: HTTP.Status -> [HTTP.Header] ->
-                       Java HttpServletResponse ()  
+    (WaiIn.ResponseRaw rawStream response) ->
+      error "ResponseRaw not supported by wai-servlet"
+  return WaiIn.ResponseReceived
+
+sendRspBuilder :: HTTP.Status -> [HTTP.Header] -> Blaze.Builder ->
+                  Java HttpServletResponse ()  
+sendRspBuilder status headers builder = do
+  setStatusAndHeaders status headers
+  buffSize <- getBufferSize
+  when (hasBody status) $ 
+    writeLazyByteString $ toLazyByteString buffSize builder
+
+sendRspStream :: HttpServletResponse -> HTTP.Status -> [HTTP.Header] -> WaiIn.StreamingBody ->
+                 IO ()  
+sendRspStream servResp status headers body = do
+  javaWith servResp $ do
+        setStatusAndHeaders status headers
+  when (hasBody status) $ 
+    body (sendChunk servResp) (flush servResp)
+
+sendChunk :: (a <: ServletResponse) => a -> Blaze.Builder -> IO ()
+sendChunk resp builder = javaWith resp $ do
+  buffSize <- getBufferSize
+  let bs = toLazyByteString buffSize builder
+  writeLazyByteString bs
+
+flush :: (a <: ServletResponse) => a -> IO ()
+flush resp = javaWith resp flushBuffer
+
+setStatusAndHeaders :: HTTP.Status -> [HTTP.Header] -> Java HttpServletResponse ()  
 setStatusAndHeaders status headers = do
   setStatus $ HTTP.statusCode status
   forM_ headers $ \ (name,value) -> do
@@ -115,15 +136,48 @@ writeStrictByteString bss = do
         getByteArray = withForeignPtr fptr $ \ ptr -> 
                          return $ toByteArray ptr offset length
 
-sendChunk :: (a <: ServletResponse) => a -> Blaze.Builder -> IO ()
-sendChunk resp builder = javaWith resp $ do
-  buffSize <- getBufferSize
-  let bs = toLazyByteString buffSize builder
-  writeLazyByteString bs
+sendRspFile :: HTTP.Status -> HTTP.ResponseHeaders -> HTTP.RequestHeaders -> FilePath ->
+               Maybe WaiIn.FilePart -> Bool -> Java HttpServletResponse ()
+-- Sophisticated WAI applications.
+-- We respect status. status MUST be a proper value.
+sendRspFile status hdrs _ path (Just part) isHead = do
+  let hdrs' = addContentHeadersForFilePart hdrs part
+  sendRspFile2XX status hdrs' path part isHead
+-- Simple WAI applications.
+-- Status is ignored
+sendRspFile _ hdrs reqhdrs path Nothing isHead = do
+  efinfo <- io $ E.try $ getFileInfo path
+  case efinfo of
+    Left (_ex :: E.IOException) -> 
+#ifdef WAI_SERVLET_DEBUG
+      (io $ print _ex) >>
+#endif
+      sendRspFile404 hdrs
+    Right finfo -> case conditionalRequest finfo hdrs reqhdrs of
+      WithoutBody s         -> sendRspBuilder s hdrs mempty
+      WithBody s hs part    -> sendRspFile2XX s hs path part isHead
 
-flush :: (a <: ServletResponse) => a -> IO ()
-flush resp = javaWith resp flushBuffer
+sendRspFile2XX :: HTTP.Status -> HTTP.ResponseHeaders -> FilePath ->
+                WaiIn.FilePart -> Bool -> Java HttpServletResponse ()
+sendRspFile2XX status hdrs path (WaiIn.FilePart off len size) isHead = do
+  setStatusAndHeaders status hdrs
+  unless isHead $ do
+    os <- getOutputStream
+    let [off',len',size'] = map fromIntegral [off,len,size]
+    sendFile os path off' len' size'
 
-serveFile :: (resp <: ServletResponse, req <: ServletRequest) =>
-  req -> WaiIn.Response -> Java resp ()
-serveFile = error "serveFile not implemented yet"
+sendRspFile404 :: HTTP.ResponseHeaders -> Java HttpServletResponse ()
+sendRspFile404 hdrs = sendRspBuilder HTTP.notFound404 hdrs' body
+  where hdrs' = replaceHeader HTTP.hContentType "text/plain; charset=utf-8" hdrs
+        body = Blaze.fromByteString "File not found"
+
+type HeaderValue = BS.ByteString
+
+replaceHeader :: HTTP.HeaderName -> HeaderValue -> [HTTP.Header] -> [HTTP.Header]
+replaceHeader k v hdrs = (k,v) : deleteBy ((==) `on` fst) (k,v) hdrs
+
+
+foreign import java unsafe "@static network.wai.servlet.Utils.sendFile"
+   sendFile :: (os <: JIO.OutputStream) =>
+                os -> String -> Int64 -> Int64 -> Int64 -> Java a ()
+

@@ -51,14 +51,13 @@ servState = makeServiceMethod $ app
 servStream :: DefaultWaiServletApplication
 servStream = makeServiceMethod appStream
 
-appFile :: Application
-appFile _ respond = respond $
+appFile :: FilePath -> Application
+appFile path _ respond = respond $
   responseFile status200 [("Content-Type", "text/html")]
-    "index.html"
-    Nothing
+    path Nothing
 
 servFile :: DefaultWaiServletApplication
-servFile = makeServiceMethod appFile
+servFile = makeServiceMethod $ appFile "index.html"
 
 appShowReq :: Application
 appShowReq req respond = do
@@ -72,7 +71,18 @@ appShowReq req respond = do
 servShowReq :: DefaultWaiServletApplication
 servShowReq = makeServiceMethod appShowReq 
 
-foreign export java "service" servShowReq :: DefaultWaiServletApplication
+appAll :: FilePath -> Application
+appAll filePath req respond = case pathInfo req of
+  ["state"]        -> appState (unsafePerformIO $ newMVar 0) req respond
+  ["stream"]       -> appStream req respond
+  ["request-info"] -> appShowReq req respond
+  ["static-file"]  -> appFile filePath req respond
+  _                -> appSimple req respond
+
+servAll :: DefaultWaiServletApplication
+servAll = makeServiceMethod $ appAll "index.html"
+
+foreign export java "service" servAll :: DefaultWaiServletApplication
 
 
 

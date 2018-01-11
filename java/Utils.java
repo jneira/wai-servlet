@@ -3,8 +3,12 @@ package network.wai.servlet;
 import java.nio.ByteBuffer;
 import eta.runtime.io.MemoryManager;
 import java.io.InputStream;
+import java.io.BufferedInputStream;
+import java.io.OutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.file.*;
+import java.nio.file.attribute.*;
 
 public class Utils {
 
@@ -54,5 +58,44 @@ public class Utils {
     
     public static int size(ByteBuffer buf) {
         return buf.remaining();
+    }
+
+    public static void sendFile(OutputStream os, String pathStr,
+        long offSet, long len, long size) throws IOException {
+
+        Path path = Paths.get(pathStr);
+        try (InputStream input = new BufferedInputStream(
+                                     Files.newInputStream(path))) {
+            copy(input, os, size, offSet, len);
+        }
+    }
+
+    private static void copy(InputStream input, OutputStream output,
+        long inputSize, long start, long length) throws IOException {
+
+        byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
+        int read;
+        
+        if (inputSize == length) {
+            // Write full range.
+            while ((read = input.read(buffer)) > 0) {
+                output.write(buffer, 0, read);
+                output.flush();
+            }
+        } else {
+            input.skip(start);
+            long toRead = length;
+            
+            while ((read = input.read(buffer)) > 0) {
+                if ((toRead -= read) > 0) {
+                    output.write(buffer, 0, read);
+                    output.flush();
+                } else {
+                    output.write(buffer, 0, (int) toRead + read);
+                    output.flush();
+                    break;
+                }
+            }
+        }
     }
 }
