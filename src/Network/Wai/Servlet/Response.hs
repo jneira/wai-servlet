@@ -22,6 +22,8 @@ import Network.Wai.Servlet.Request
 import Java
 #ifdef INTEROP
 import qualified Interop.Java.IO as JIO
+#else
+import qualified Java.IO as JIO
 #endif
 
 data {-# CLASS "javax.servlet.ServletResponse" #-}
