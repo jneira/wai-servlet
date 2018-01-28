@@ -10,7 +10,8 @@ import qualified Network.Wai.Internal as W
 import qualified Network.HTTP.Types as H
 import Network.Socket (SockAddr (SockAddrInet,SockAddrInet6),
                        tupleToHostAddress,tupleToHostAddress6)
-import Foreign.ForeignPtr (ForeignPtr,newForeignPtr_)
+import Foreign.ForeignPtr (ForeignPtr,newForeignPtr,newForeignPtr_)
+import Foreign.Marshal.Alloc (finalizerFree)
 import Foreign.Ptr (Ptr)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Internal as BSInt (fromForeignPtr)
@@ -22,6 +23,7 @@ import Data.List (intercalate)
 import Data.Maybe (fromMaybe,catMaybes)
 import Control.Monad (when)
 import Java
+import Java.Array
 #ifdef INTEROP
 import qualified Interop.Java.IO as JIO
 #else
@@ -69,8 +71,10 @@ foreign import java unsafe "@interface getHeaderNames" getHeaderNames ::
 foreign import java unsafe "@interface getHeaders" getHeaders ::
   (a <: HttpServletRequest) => String -> Java a (Maybe (Enumeration JString))
 
+foreign import java unsafe "@static network.wai.servlet.Utils.toByteArray"
+   toByteArray :: (is <: JIO.InputStream) => is -> JByteArray
 foreign import java unsafe "@static network.wai.servlet.Utils.toByteBuffer"
-   toByteBuffer :: (is <: JIO.InputStream) => is -> Ptr Word8
+   toByteBuffer :: JByteArray -> Ptr Word8
 foreign import java unsafe "@static network.wai.servlet.Utils.size"
    size :: Ptr Word8 -> Int
 
@@ -98,14 +102,14 @@ makeWaiRequest req  =  W.Request
         rawQuery = queryString req
         query = H.parseQuery rawQuery
         header name = fmap snd $ requestHeader req name
-          
+
 requestMethod :: (a <: HttpServletRequest) => a -> H.Method
 requestMethod req = pureJavaWith req $ do
   method <- getMethod
   return $ BSChar.pack method
 
 httpVersion ::  (a <: ServletRequest) => a -> H.HttpVersion
-httpVersion req = pureJavaWith req $ do 
+httpVersion req = pureJavaWith req $ do
   httpVer <- getProtocol
   return $ case httpVer of
     "HTTP/0.9" -> H.http09
@@ -130,12 +134,12 @@ pathInfo :: (a <: HttpServletRequest) => a -> B.ByteString
 pathInfo req = pureJavaWith req $ do
   path <- getPathInfo
   return $ encode path
-                                  
+
 queryString :: (a <: HttpServletRequest) => a -> B.ByteString
 queryString req = pureJavaWith req $ do
   query <- getQueryString
   return $ encode query
-  
+
 requestHeaders :: (a <: HttpServletRequest) => a -> H.RequestHeaders
 requestHeaders req = pureJavaWith req $ do
   names <- getHeaderNames
@@ -145,7 +149,7 @@ requestHeaders req = pureJavaWith req $ do
 requestHeader ::  (a <: HttpServletRequest) => a -> String -> Maybe H.Header
 requestHeader req name = pureJavaWith req $ do
   mjhdrs <- getHeaders name
-  return $ mjhdrs >>= f 
+  return $ mjhdrs >>= f
   where f jhdrs = if null hdrs then Nothing else Just (hdrn,hdrs')
           where hdrs = map fromJString $ fromJava jhdrs
                 hdrs' = BSChar.pack $ intercalate "," hdrs
@@ -162,12 +166,12 @@ remoteHost req = pureJavaWith req $ do
       ip' = if (length ip == 1) then wordsWhen (==':') ipStr else ip
       port = fromIntegral portInt
   return $ case length ip' of
-    4 -> let [ip1,ip2,ip3,ip4] = map read ip' in 
+    4 -> let [ip1,ip2,ip3,ip4] = map read ip' in
          SockAddrInet port $ tupleToHostAddress (ip1,ip2,ip3,ip4)
     8 -> let [ip1,ip2,ip3,ip4,ip5,ip6,ip7,ip8] = map read ip' in
          SockAddrInet6 port 0
          (tupleToHostAddress6 (ip1,ip2,ip3,ip4,ip5,ip6,ip7,ip8)) 0
-    _ -> error $ "Error parsing ip: " ++ ipStr 
+    _ -> error $ "Error parsing ip: " ++ ipStr
 
 wordsWhen :: (Char -> Bool) -> String -> [String]
 wordsWhen p s =  case dropWhile p s of
@@ -178,14 +182,16 @@ wordsWhen p s =  case dropWhile p s of
 requestBody :: (a <: ServletRequest) => a -> IO B.ByteString
 requestBody req = do
   is <- javaWith req getInputStream
-  let ptr = toByteBuffer is
-      l = size ptr
-  fptr <- newForeignPtr_ ptr -- without finalizer?
+  let bytes = toByteArray is
+      ptr   = toByteBuffer bytes
+  l    <- javaWith bytes alength
+  fptr <- newForeignPtr_ ptr
+  -- fptr <- newForeignPtr finalizerFree ptr
+  -- TODO: There is a bug in the MemoryManager that prevents us from using this.
   return $ if l == 0 then B.empty
-           else BSInt.fromForeignPtr fptr 0 l 
-  
+           else BSInt.fromForeignPtr fptr 0 l
+
 requestBodyLength :: (a <: ServletRequest) => a -> W.RequestBodyLength
 requestBodyLength req = pureJavaWith req $ do
   l <- getContentLength
   return $ W.KnownLength (fromIntegral $ if l < 0 then 0 else l)
-

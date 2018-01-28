@@ -21,9 +21,8 @@ public class Utils {
         return b;
     }
 
-    public static long toByteBuffer(InputStream is)
+    public static long toByteBuffer(byte[] bytes)
       throws IOException {
-        byte[] bytes=toByteArray(is);
         long address = MemoryManager.allocateBuffer(bytes.length,true);
         ByteBuffer buf = MemoryManager.getBoundedBuffer(address);
         buf.put(bytes);
@@ -51,15 +50,6 @@ public class Utils {
         }
     }
 
-    public static int size(long address) {
-        ByteBuffer buf = MemoryManager.getBoundedBuffer(address);
-        return size(buf);
-    }
-    
-    public static int size(ByteBuffer buf) {
-        return buf.remaining();
-    }
-
     public static void sendFile(OutputStream os, String pathStr,
         long offSet, long len, long size) throws IOException {
 
@@ -75,7 +65,6 @@ public class Utils {
 
         byte[] buffer = new byte[DEFAULT_BUFFER_SIZE];
         int read;
-        
         if (inputSize == length) {
             // Write full range.
             while ((read = input.read(buffer)) > 0) {
@@ -85,7 +74,6 @@ public class Utils {
         } else {
             input.skip(start);
             long toRead = length;
-            
             while ((read = input.read(buffer)) > 0) {
                 if ((toRead -= read) > 0) {
                     output.write(buffer, 0, read);
