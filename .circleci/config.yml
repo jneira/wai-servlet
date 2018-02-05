@@ -5,8 +5,21 @@ jobs:
       - image: typelead/eta:latest
     steps:
     - checkout
+
+    - restore_cache:
+        key: v1200-etlas-cache-
+
     - run: etlas update
+
     - run: etlas install
+
+    - save_cache:
+        key: v1200-etlas-cache-{{ epoch }}
+        paths:
+          - "~/.etlas/config"
+          - "~/.etlas/packages"
+          - "~/.etlas/patches"
+          - "~/.etlas/tools"
 
 workflows:
   version: 2
