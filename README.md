@@ -11,7 +11,7 @@ Library to integrate [eta](http://eta-lang.org) [wai](https://github.com/yesodwe
 
 ### Running an application in a embedded servlet container
 
-* You need to install and set the [wai-servlet-jetty-adapter](http://github.com/jneira/wai-servlet-jetty-adapter) package as a dependency. Currently is the unique adapter implemented for wai-servlet.
+* You need to install and set the [wai-servlet-jetty-adapter](https://github.com/jneira/wai-servlet-handler-jetty) package as a dependency. Currently is the unique adapter implemented for wai-servlet.
 * You have to import the module `Network.Wai.Servlet.Handler.Jetty` with the `run` function and call it with the port server and your application:
 ```haskell
 {-# LANGUAGE OverloadedStrings #-}
