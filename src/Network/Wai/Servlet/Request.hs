@@ -118,7 +118,7 @@ httpVersion req = pureJavaWith req $ do
 
 encode ::  Maybe String -> B.ByteString
 encode Nothing = B.empty
-encode (Just str) =  BSChar.pack str
+encode (Just str) =  BSUTF8.fromString str
 
 rawPathInfo :: (a <: HttpServletRequest) => a -> B.ByteString
 rawPathInfo req = pureJavaWith req $ do
