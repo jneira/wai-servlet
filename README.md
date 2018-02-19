@@ -5,7 +5,7 @@
 Library to integrate [eta](http://eta-lang.org) [wai](https://github.com/yesodweb/wai) applications with the [servlet api](http://docs.oracle.com/javaee/7/api/javax/servlet/package-summary.html)
 
 ## Getting Started
-* Visit the [Getting Started](http://eta-lang.org/docs/html/getting-started.html) eta instructions to build and install the library and the examples
+* Visit the [Getting Started](https://eta-lang.org/docs/eta-concepts/getting-started/install-eta) eta instructions to build and install the library and the examples
 * In [src/Network/Wai/Servlet/Examples.hs](https://github.com/jneira/wai-servlet/blob/master/src/Network/Wai/Servlet/Examples.hs) you can find some examples of wai applications and code to generate a servlet class that can be deployed in your favorite servlet container.
 * There are two options to deploy wai-servlet apps: generating a war file to be deployed in a servlet container or run it directly in a embedded one; this is the way more similar to use [wai warp](https://github.com/yesodweb/wai/tree/master/warp) for haskell wai applications.
 
