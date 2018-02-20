@@ -16,9 +16,9 @@ source-repository this
   location:          https://github.com/jneira/wai-servlet 
   tag:               0.1.4.0
 
-Flag wai-servlet-debug
-    Description: print debug output. not suitable for production
-    Default:     False
+flag wai-servlet-debug
+    description: print debug output. not suitable for production
+    default:     False
 
 library
   exposed-modules:     Network.Wai.Servlet
@@ -50,3 +50,14 @@ library
   if flag(wai-servlet-debug)
     cpp-options: -DWAI_SERVLET_DEBUG
 
+test-suite spec
+  main-is:         Spec.hs
+  other-modules:   FileSpec
+  hs-source-dirs:  test, .
+  type:            exitcode-stdio-1.0
+  ghc-options:     -Wall
+  build-depends:   base >= 4.8 && < 5
+                 , HUnit
+                 , QuickCheck
+                 , hspec
+                 , wai-servlet
