@@ -22,10 +22,11 @@ flag wai-servlet-debug
 
 library
   exposed-modules:     Network.Wai.Servlet
-                     , Network.Wai.Servlet.Examples 
+                     , Network.Wai.Servlet.Examples
+                     , Network.Wai.Servlet.File
   other-modules:       Network.Wai.Servlet.Request
                      , Network.Wai.Servlet.Response
-                     , Network.Wai.Servlet.File
+                     
   -- other-extensions:    
   build-depends:       base >= 4.8 && < 4.9
                      , wai
@@ -48,16 +49,17 @@ library
   else
     java-sources:      java/eta-0.0.6/Utils.java
   if flag(wai-servlet-debug)
-    cpp-options: -DWAI_SERVLET_DEBUG
+    cpp-options:       -DWAI_SERVLET_DEBUG
 
 test-suite spec
-  main-is:         Spec.hs
-  other-modules:   FileSpec
-  hs-source-dirs:  test, .
-  type:            exitcode-stdio-1.0
-  ghc-options:     -Wall
-  build-depends:   base >= 4.8 && < 5
-                 , HUnit
-                 , QuickCheck
-                 , hspec
-                 , wai-servlet
+  main-is:             Spec.hs
+  hs-source-dirs:      test, .
+  default-language:    Haskell2010
+  type:                exitcode-stdio-1.0
+  ghc-options:         -Wall
+  build-depends:       base >= 4.8 && < 5
+                     , HUnit
+                     , QuickCheck
+                     , hspec
+                     , http-types
+                     , wai-servlet
