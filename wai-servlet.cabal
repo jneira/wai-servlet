@@ -22,11 +22,13 @@ Flag wai-servlet-debug
 
 library
   exposed-modules:     Network.Wai.Servlet
-                     , Network.Wai.Servlet.Examples 
+                     , Network.Wai.Servlet.Examples
   other-modules:       Network.Wai.Servlet.Request
                      , Network.Wai.Servlet.Response
                      , Network.Wai.Servlet.File
-  -- other-extensions:    
+                     , Network.Wai.Servlet.Settings
+                     , Javax.Servlet
+  -- other-extensions:
   build-depends:       base >= 4.8 && < 4.9
                      , wai
                      , network
@@ -40,7 +42,7 @@ library
   if impl(eta >= 0.0.9.7)
      build-depends:    eta-java-interop
      cpp-options:      -DINTEROP
-  hs-source-dirs:      src      
+  hs-source-dirs:      src
   default-language:    Haskell2010
   maven-depends:       javax.servlet:servlet-api:2.5
   if impl(eta >= 0.0.9)

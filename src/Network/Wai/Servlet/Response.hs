@@ -33,36 +33,17 @@ import qualified Interop.Java.IO as JIO
 import qualified Java.IO as JIO
 #endif
 import Java.Exception
+import Javax.Servlet
 
-data {-# CLASS "javax.servlet.ServletResponse" #-}
-  ServletResponse = ServletResponse (Object# ServletResponse)
-  deriving Class
+foreign import java unsafe "@static network.wai.servlet.Utils.toByteArray"
+   toByteArray :: Ptr Word8 -> Int -> Int -> JByteArray
 
-data {-# CLASS "javax.servlet.http.HttpServletResponse" #-}
-  HttpServletResponse = HttpServletResponse (Object# HttpServletResponse)
-  deriving Class
+foreign import java unsafe "@static network.wai.servlet.Utils.sendFile"
+   sendFile :: (os <: JIO.OutputStream) =>
+                os -> String -> Int64 -> Int64 -> Int64 -> Java a ()
 
-type instance Inherits HttpServletResponse = '[ServletResponse]
-
-data {-# CLASS "javax.servlet.ServletOutputStream" #-}
-  ServletOutputStream = ServletOutputStream (Object# ServletOutputStream)
-  deriving Class
-
-type instance Inherits ServletOutputStream = '[JIO.OutputStream]
-
-foreign import java unsafe "@interface setStatus" setStatus ::
-   Int -> Java HttpServletResponse ()
-foreign import java unsafe "@interface setHeader" setHeader ::
-   String -> String -> Java HttpServletResponse ()
-foreign import java unsafe "@interface getOutputStream" getOutputStream ::
-   (a <: ServletResponse) => Java a ServletOutputStream
-foreign import java unsafe "@interface flushBuffer" flushBuffer ::
-   (a <: ServletResponse) => Java a ()
-foreign import java unsafe "@interface getBufferSize" getBufferSize ::
-   (a <: ServletResponse) => Java a Int
-
-updateHttpServletResponse :: HttpServletRequest -> HttpServletResponse ->
-                             Wai.Response -> IO Wai.ResponseReceived
+updateHttpServletResponse :: HttpServletRequest -> HttpServletResponse
+                          -> Wai.Response -> IO Wai.ResponseReceived
 updateHttpServletResponse servReq servResp waiResp = javaWith servResp $ do
   case waiResp of
     (WaiIn.ResponseBuilder status headers builder) ->
@@ -79,16 +60,16 @@ updateHttpServletResponse servReq servResp waiResp = javaWith servResp $ do
       error "ResponseRaw not supported by wai-servlet"
   return WaiIn.ResponseReceived
 
-sendRspBuilder :: HTTP.Status -> [HTTP.Header] -> Blaze.Builder ->
-                  Java HttpServletResponse ()  
+sendRspBuilder :: HTTP.Status -> [HTTP.Header] -> Blaze.Builder
+               -> Java HttpServletResponse ()  
 sendRspBuilder status headers builder = do
   setStatusAndHeaders status headers
   buffSize <- getBufferSize
   when (hasBody status) $ 
     writeLazyByteString $ toLazyByteString buffSize builder
 
-sendRspStream :: HttpServletResponse -> HTTP.Status -> [HTTP.Header] -> WaiIn.StreamingBody ->
-                 IO ()  
+sendRspStream :: HttpServletResponse -> HTTP.Status
+              -> [HTTP.Header] -> WaiIn.StreamingBody -> IO ()  
 sendRspStream servResp status headers body = do
   javaWith servResp $ do
         setStatusAndHeaders status headers
@@ -124,9 +105,6 @@ writeLazyByteString BSLInt.Empty = return ()
 writeLazyByteString (BSLInt.Chunk c cs) =
   writeStrictByteString c >> writeLazyByteString cs
 
-foreign import java unsafe "@static network.wai.servlet.Utils.toByteArray"
-   toByteArray :: Ptr Word8 -> Int -> Int -> JByteArray
-
 writeStrictByteString :: (a <: ServletResponse) =>
                          BS.ByteString  -> Java a ()
 writeStrictByteString bss = do
@@ -136,8 +114,8 @@ writeStrictByteString bss = do
         getByteArray = withForeignPtr fptr $ \ ptr -> 
                          return $ toByteArray ptr offset length
 
-sendRspFile :: HTTP.Status -> HTTP.ResponseHeaders -> HTTP.RequestHeaders -> FilePath ->
-               Maybe WaiIn.FilePart -> Bool -> Java HttpServletResponse ()
+sendRspFile :: HTTP.Status -> HTTP.ResponseHeaders -> HTTP.RequestHeaders -> FilePath
+            -> Maybe WaiIn.FilePart -> Bool -> Java HttpServletResponse ()
 -- Sophisticated WAI applications.
 -- We respect status. status MUST be a proper value.
 sendRspFile status hdrs _ path (Just part) isHead = do
@@ -157,8 +135,8 @@ sendRspFile _ hdrs reqhdrs path Nothing isHead = do
       WithoutBody s         -> sendRspBuilder s hdrs mempty
       WithBody s hs part    -> sendRspFile2XX s hs path part isHead
 
-sendRspFile2XX :: HTTP.Status -> HTTP.ResponseHeaders -> FilePath ->
-                WaiIn.FilePart -> Bool -> Java HttpServletResponse ()
+sendRspFile2XX :: HTTP.Status -> HTTP.ResponseHeaders -> FilePath
+               -> WaiIn.FilePart -> Bool -> Java HttpServletResponse ()
 sendRspFile2XX status hdrs path (WaiIn.FilePart off len size) isHead = do
   setStatusAndHeaders status hdrs
   unless isHead $ do
@@ -175,9 +153,4 @@ type HeaderValue = BS.ByteString
 
 replaceHeader :: HTTP.HeaderName -> HeaderValue -> [HTTP.Header] -> [HTTP.Header]
 replaceHeader k v hdrs = (k,v) : deleteBy ((==) `on` fst) (k,v) hdrs
-
-
-foreign import java unsafe "@static network.wai.servlet.Utils.sendFile"
-   sendFile :: (os <: JIO.OutputStream) =>
-                os -> String -> Int64 -> Int64 -> Int64 -> Java a ()
 

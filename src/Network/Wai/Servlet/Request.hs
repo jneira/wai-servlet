@@ -4,6 +4,7 @@ module Network.Wai.Servlet.Request
     ( HttpServletRequest
     , ServletRequest
     , makeWaiRequest
+    , makeWaiRequestSettings
     , requestHeaders
     , requestMethod ) where
 import qualified Network.Wai.Internal as W
@@ -29,47 +30,8 @@ import qualified Interop.Java.IO as JIO
 #else
 import qualified Java.IO as JIO
 #endif
-
-data {-# CLASS "javax.servlet.ServletRequest" #-}
-  ServletRequest = ServletRequest (Object# ServletRequest)
-  deriving Class
-
-data {-# CLASS "javax.servlet.http.HttpServletRequest" #-}
-  HttpServletRequest = HttpServletRequest (Object# HttpServletRequest)
-  deriving Class
-
-data {-# CLASS "javax.servlet.ServletInputStream" #-}
-  ServletInputStream = ServletInputStream (Object# ServletInputStream)
-  deriving Class
-
-type instance Inherits HttpServletRequest = '[ServletRequest]
-type instance Inherits ServletInputStream = '[JIO.InputStream]
-
-foreign import java unsafe "@interface getCharacterEncoding" getCharacterEncoding ::
-  (a <: ServletRequest) => Java a String
-foreign import java unsafe "@interface getProtocol" getProtocol ::
-  (a <: ServletRequest) => Java a String
-foreign import java unsafe "@interface isSecure" isSecure ::
-  (a <: ServletRequest) => Java a Bool
-foreign import java unsafe "@interface getRemoteAddr" getRemoteAddr ::
-  (a <: ServletRequest) => Java a String
-foreign import java unsafe "@interface getRemotePort" getRemotePort ::
-  (a <: ServletRequest) => Java a Int
-foreign import java unsafe "@interface getInputStream" getInputStream ::
-  (a <: ServletRequest) => Java a ServletInputStream
-foreign import java unsafe "@interface getContentLength" getContentLength ::
-  (a <: ServletRequest) => Java a Int
-
-foreign import java unsafe "@interface getMethod" getMethod ::
-  (a <: HttpServletRequest) => Java a String
-foreign import java unsafe "@interface getPathInfo" getPathInfo ::
-  (a <: HttpServletRequest) => Java a (Maybe String)
-foreign import java unsafe "@interface getQueryString" getQueryString ::
-  (a <: HttpServletRequest) => Java a (Maybe String)
-foreign import java unsafe "@interface getHeaderNames" getHeaderNames ::
-  (a <: HttpServletRequest) => Java a (Enumeration JString)
-foreign import java unsafe "@interface getHeaders" getHeaders ::
-  (a <: HttpServletRequest) => String -> Java a (Maybe (Enumeration JString))
+import Javax.Servlet
+import Network.Wai.Servlet.Settings
 
 foreign import java unsafe "@static network.wai.servlet.Utils.toByteArray"
    toByteArray :: (is <: JIO.InputStream) => is -> JByteArray
@@ -78,22 +40,12 @@ foreign import java unsafe "@static network.wai.servlet.Utils.toByteBuffer"
 foreign import java unsafe "@static network.wai.servlet.Utils.size"
    size :: Ptr Word8 -> Int
 
-data CharEncoding = ISO88591 | UTF8
-
-data WaiRequestSettings = WaiRequestSettings
-  { uriEncoding :: CharEncoding }
-
-defaultWaiRequestSettings :: WaiRequestSettings
-defaultWaiRequestSettings = WaiRequestSettings
-  { uriEncoding = UTF8 }
-
 makeWaiRequest :: HttpServletRequest -> W.Request
-makeWaiRequest = makeWaiRequestWithSettings
-                 defaultWaiRequestSettings  
+makeWaiRequest = makeWaiRequestSettings defaultSettings  
 
-makeWaiRequestWithSettings :: WaiRequestSettings -> HttpServletRequest
-                           -> W.Request
-makeWaiRequestWithSettings settings req = W.Request
+makeWaiRequestSettings :: Settings -> HttpServletRequest
+                       -> W.Request
+makeWaiRequestSettings settings req = W.Request
    { W.requestMethod = requestMethod req 
    , W.httpVersion = httpVersion req
    , W.rawPathInfo = rawPath
@@ -109,9 +61,8 @@ makeWaiRequestWithSettings settings req = W.Request
    , W.requestHeaderHost = header "Host"
    , W.requestHeaderRange = header "Range"
    , W.requestHeaderReferer = header "Referer"
-   , W.requestHeaderUserAgent = header "User-Agent"
-   }
-  where encoding = uriEncoding settings
+   , W.requestHeaderUserAgent = header "User-Agent" }
+  where encoding = getUriEncoding settings
         rawPath = rawPathInfo encoding req
         path = H.decodePathSegments $ pathInfo encoding req
         rawQuery = queryString encoding req
