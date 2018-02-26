@@ -78,8 +78,22 @@ foreign import java unsafe "@static network.wai.servlet.Utils.toByteBuffer"
 foreign import java unsafe "@static network.wai.servlet.Utils.size"
    size :: Ptr Word8 -> Int
 
+data CharEncoding = ISO88591 | UTF8
+
+data WaiRequestSettings = WaiRequestSettings
+  { uriEncoding :: CharEncoding }
+
+defaultWaiRequestSettings :: WaiRequestSettings
+defaultWaiRequestSettings = WaiRequestSettings
+  { uriEncoding = UTF8 }
+
 makeWaiRequest :: HttpServletRequest -> W.Request
-makeWaiRequest req  =  W.Request
+makeWaiRequest = makeWaiRequestWithSettings
+                 defaultWaiRequestSettings  
+
+makeWaiRequestWithSettings :: WaiRequestSettings -> HttpServletRequest
+                           -> W.Request
+makeWaiRequestWithSettings settings req = W.Request
    { W.requestMethod = requestMethod req 
    , W.httpVersion = httpVersion req
    , W.rawPathInfo = rawPath
@@ -96,10 +110,11 @@ makeWaiRequest req  =  W.Request
    , W.requestHeaderRange = header "Range"
    , W.requestHeaderReferer = header "Referer"
    , W.requestHeaderUserAgent = header "User-Agent"
-  }
-  where rawPath = rawPathInfo req
-        path = H.decodePathSegments $ pathInfo req
-        rawQuery = queryString req
+   }
+  where encoding = uriEncoding settings
+        rawPath = rawPathInfo encoding req
+        path = H.decodePathSegments $ pathInfo encoding req
+        rawQuery = queryString encoding req
         query = H.parseQuery rawQuery
         header name = fmap snd $ requestHeader req name
 
@@ -116,29 +131,30 @@ httpVersion req = pureJavaWith req $ do
     "HTTP/1.0" -> H.http10
     "HTTP/1.1" -> H.http11
 
-encode ::  Maybe String -> B.ByteString
-encode Nothing = B.empty
-encode (Just str) =  BSUTF8.fromString str
+encode ::  CharEncoding -> Maybe String -> B.ByteString
+encode _ Nothing = B.empty
+encode UTF8 (Just str) =  BSUTF8.fromString str
+encode ISO88591 (Just str) = BSChar.pack str
 
-rawPathInfo :: (a <: HttpServletRequest) => a -> B.ByteString
-rawPathInfo req = pureJavaWith req $ do
+rawPathInfo :: (a <: HttpServletRequest) => CharEncoding -> a -> B.ByteString
+rawPathInfo enc req = pureJavaWith req $ do
   path <- getPathInfo
   case path of
     Nothing -> return B.empty
     Just str -> do
       let segments = wordsWhen (=='/') str
       return $ B.intercalate "/" $
-        map (H.urlEncode False . encode . Just) segments
+        map (H.urlEncode False . encode enc . Just) segments
 
-pathInfo :: (a <: HttpServletRequest) => a -> B.ByteString
-pathInfo req = pureJavaWith req $ do
+pathInfo :: (a <: HttpServletRequest) => CharEncoding -> a -> B.ByteString
+pathInfo enc req = pureJavaWith req $ do
   path <- getPathInfo
-  return $ encode path
+  return $ encode enc path
 
-queryString :: (a <: HttpServletRequest) => a -> B.ByteString
-queryString req = pureJavaWith req $ do
+queryString :: (a <: HttpServletRequest) => CharEncoding -> a -> B.ByteString
+queryString enc req = pureJavaWith req $ do
   query <- getQueryString
-  return $ encode query
+  return $ encode enc query
 
 requestHeaders :: (a <: HttpServletRequest) => a -> H.RequestHeaders
 requestHeaders req = pureJavaWith req $ do
