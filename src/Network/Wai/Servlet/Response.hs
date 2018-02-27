@@ -16,7 +16,7 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Internal as BSLInt
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Internal as BSInt
-import qualified Data.ByteString.Char8 as BSChar (unpack,pack)
+import qualified Data.ByteString.Char8 as BSChar (unpack)
 import Foreign.ForeignPtr (ForeignPtr,withForeignPtr)
 import Foreign.Ptr (Ptr)
 import Data.Word (Word8)
@@ -85,7 +85,8 @@ sendChunk resp builder = javaWith resp $ do
 flush :: (a <: ServletResponse) => a -> IO ()
 flush resp = javaWith resp flushBuffer
 
-setStatusAndHeaders :: HTTP.Status -> [HTTP.Header] -> Java HttpServletResponse ()  
+setStatusAndHeaders :: HTTP.Status -> [HTTP.Header]
+                    -> Java HttpServletResponse ()  
 setStatusAndHeaders status headers = do
   setStatus $ HTTP.statusCode status
   forM_ headers $ \ (name,value) -> do
@@ -114,8 +115,9 @@ writeStrictByteString bss = do
         getByteArray = withForeignPtr fptr $ \ ptr -> 
                          return $ toByteArray ptr offset length
 
-sendRspFile :: HTTP.Status -> HTTP.ResponseHeaders -> HTTP.RequestHeaders -> FilePath
-            -> Maybe WaiIn.FilePart -> Bool -> Java HttpServletResponse ()
+sendRspFile :: HTTP.Status -> HTTP.ResponseHeaders -> HTTP.RequestHeaders
+            -> FilePath -> Maybe WaiIn.FilePart -> Bool
+            -> Java HttpServletResponse ()
 -- Sophisticated WAI applications.
 -- We respect status. status MUST be a proper value.
 sendRspFile status hdrs _ path (Just part) isHead = do
@@ -151,6 +153,7 @@ sendRspFile404 hdrs = sendRspBuilder HTTP.notFound404 hdrs' body
 
 type HeaderValue = BS.ByteString
 
-replaceHeader :: HTTP.HeaderName -> HeaderValue -> [HTTP.Header] -> [HTTP.Header]
+replaceHeader :: HTTP.HeaderName -> HeaderValue -> [HTTP.Header]
+              -> [HTTP.Header]
 replaceHeader k v hdrs = (k,v) : deleteBy ((==) `on` fst) (k,v) hdrs
 
