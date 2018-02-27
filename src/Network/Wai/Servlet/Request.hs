@@ -1,5 +1,5 @@
-{-# LANGUAGE MagicHash,TypeFamilies,DataKinds,FlexibleContexts,
-             OverloadedStrings, TypeOperators,CPP #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings, TypeOperators,
+             ScopedTypeVariables, CPP #-}
 module Network.Wai.Servlet.Request
     ( HttpServletRequest
     , ServletRequest

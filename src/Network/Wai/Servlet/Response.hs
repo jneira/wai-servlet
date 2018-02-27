@@ -1,6 +1,5 @@
-{-# LANGUAGE MagicHash,TypeFamilies,DataKinds,FlexibleContexts,
-             MultiParamTypeClasses,TypeOperators,RecordWildCards,
-             OverloadedStrings,CPP,ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts, TypeOperators, RecordWildCards,
+             OverloadedStrings,CPP, ScopedTypeVariables #-}
 
 module Network.Wai.Servlet.Response
     ( HttpServletResponse
