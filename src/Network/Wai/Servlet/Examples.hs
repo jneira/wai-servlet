@@ -72,12 +72,13 @@ servShowReq :: DefaultWaiServletApplication
 servShowReq = makeServiceMethod appShowReq 
 
 appAll :: FilePath -> Application
-appAll filePath req respond = case pathInfo req of
+appAll filePath req respond = case path of
   ["state"]        -> appState (unsafePerformIO $ newMVar 0) req respond
   ["stream"]       -> appStream req respond
-  ["request-info"] -> appShowReq req respond
   ["static-file"]  -> appFile filePath req respond
+  "request-info":_ -> appShowReq req respond
   _                -> appSimple req respond
+  where path = pathInfo req
 
 servAll :: DefaultWaiServletApplication
 servAll = makeServiceMethod $ appAll "index.html"
