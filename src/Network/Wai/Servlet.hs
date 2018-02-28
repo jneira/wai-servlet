@@ -32,13 +32,18 @@ type DefaultWaiServletApplication = ServletApplication DefaultWaiServlet
 
 makeServiceMethod :: (a <: GenericServlet) =>
   Wai.Application -> ServletApplication a
-makeServiceMethod waiApp servReq servResp =
+makeServiceMethod = makeServiceMethodSettings defaultSettings
+
+makeServiceMethodSettings :: (a <: GenericServlet) =>
+  Settings -> Wai.Application -> ServletApplication a
+makeServiceMethodSettings settings waiApp servReq servResp =
   do io $ waiApp waiReq waiRespond
      return ()
   where httpServReq = unsafeCast servReq
         httpServResp = unsafeCast servResp
-        waiReq = makeWaiRequest httpServReq
-        waiRespond = updateHttpServletResponse httpServReq httpServResp  
+        waiReq = makeWaiRequestSettings settings httpServReq
+        waiRespond = updateHttpServletResponseSettings settings
+                     httpServReq httpServResp  
 
 -- Make a proxy servlet to use programatically in embedded j2ee servers (tomcar,jetty)
 foreign import java unsafe "@wrapper @abstract service"

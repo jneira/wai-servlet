@@ -3,7 +3,8 @@
 module Network.Wai.Servlet.Response
     ( HttpServletResponse
     , ServletResponse
-    , updateHttpServletResponse ) where
+    , updateHttpServletResponse
+    , updateHttpServletResponseSettings ) where
 import Control.Monad (forM_,when,unless)
 import Control.Exception as E
 import Data.Function (on)
