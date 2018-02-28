@@ -1,6 +1,5 @@
 {-# LANGUAGE FlexibleContexts, TypeOperators, RecordWildCards,
-             OverloadedStrings,CPP, ScopedTypeVariables #-}
-
+             OverloadedStrings, CPP, ScopedTypeVariables #-}
 module Network.Wai.Servlet.Response
     ( HttpServletResponse
     , ServletResponse
@@ -25,6 +24,7 @@ import qualified Network.HTTP.Types as HTTP
 import qualified Network.HTTP.Types.Header as HTTP
 import Network.Wai.Servlet.Request
 import Network.Wai.Servlet.File
+import Network.Wai.Servlet.Settings
 import Java
 #ifdef INTEROP
 import qualified Interop.Java.IO as JIO
@@ -37,13 +37,15 @@ import Javax.Servlet
 foreign import java unsafe "@static network.wai.servlet.Utils.toByteArray"
    toByteArray :: Ptr Word8 -> Int -> Int -> JByteArray
 
-foreign import java unsafe "@static network.wai.servlet.Utils.sendFile"
-   sendFile :: (os <: JIO.OutputStream) =>
-                os -> String -> Int64 -> Int64 -> Int64 -> Java a ()
-
 updateHttpServletResponse :: HttpServletRequest -> HttpServletResponse
                           -> Wai.Response -> IO Wai.ResponseReceived
-updateHttpServletResponse servReq servResp waiResp = javaWith servResp $ do
+updateHttpServletResponse = updateHttpServletResponseSettings defaultSettings
+
+updateHttpServletResponseSettings :: Settings
+                                  -> HttpServletRequest -> HttpServletResponse
+                                  -> Wai.Response -> IO Wai.ResponseReceived
+updateHttpServletResponseSettings settings servReq servResp waiResp =
+  javaWith servResp $ do
   case waiResp of
     (WaiIn.ResponseBuilder status headers builder) ->
       sendRspBuilder status headers builder
@@ -53,7 +55,8 @@ updateHttpServletResponse servReq servResp waiResp = javaWith servResp $ do
 
     (WaiIn.ResponseFile status headers filePath filePart) -> do
       let isHead = requestMethod servReq == HTTP.methodHead 
-      sendRspFile status headers (requestHeaders servReq) filePath filePart isHead
+      sendRspFile settings status headers (requestHeaders servReq)
+                  filePath filePart isHead
                                              
     (WaiIn.ResponseRaw rawStream response) ->
       error "ResponseRaw not supported by wai-servlet"
@@ -114,17 +117,18 @@ writeStrictByteString bss = do
         getByteArray = withForeignPtr fptr $ \ ptr -> 
                          return $ toByteArray ptr offset length
 
-sendRspFile :: HTTP.Status -> HTTP.ResponseHeaders -> HTTP.RequestHeaders
-            -> FilePath -> Maybe WaiIn.FilePart -> Bool
+sendRspFile :: Settings -> HTTP.Status
+            -> HTTP.ResponseHeaders -> HTTP.RequestHeaders
+            -> FilePath -> Maybe FilePart -> Bool
             -> Java HttpServletResponse ()
 -- Sophisticated WAI applications.
 -- We respect status. status MUST be a proper value.
-sendRspFile status hdrs _ path (Just part) isHead = do
+sendRspFile settings status hdrs _ path (Just part) isHead = do
   let hdrs' = addContentHeadersForFilePart hdrs part
-  sendRspFile2XX status hdrs' path part isHead
+  sendRspFile2XX settings status hdrs' path part isHead
 -- Simple WAI applications.
 -- Status is ignored
-sendRspFile _ hdrs reqhdrs path Nothing isHead = do
+sendRspFile settings _ hdrs reqhdrs path Nothing isHead = do
   efinfo <- io $ E.try $ getFileInfo path
   case efinfo of
     Left (_ex :: E.IOException) -> 
@@ -134,16 +138,15 @@ sendRspFile _ hdrs reqhdrs path Nothing isHead = do
       sendRspFile404 hdrs
     Right finfo -> case conditionalRequest finfo hdrs reqhdrs of
       WithoutBody s         -> sendRspBuilder s hdrs mempty
-      WithBody s hs part    -> sendRspFile2XX s hs path part isHead
+      WithBody s hs part    -> sendRspFile2XX settings s hs
+                                              path part isHead
 
-sendRspFile2XX :: HTTP.Status -> HTTP.ResponseHeaders -> FilePath
-               -> WaiIn.FilePart -> Bool -> Java HttpServletResponse ()
-sendRspFile2XX status hdrs path (WaiIn.FilePart off len size) isHead = do
+sendRspFile2XX :: Settings -> HTTP.Status -> HTTP.ResponseHeaders
+               -> FilePath -> FilePart -> Bool
+               -> Java HttpServletResponse ()
+sendRspFile2XX settings status hdrs path part isHead = do
   setStatusAndHeaders status hdrs
-  unless isHead $ do
-    os <- getOutputStream
-    let [off',len',size'] = map fromIntegral [off,len,size]
-    sendFile os path off' len' size'
+  unless isHead $ (getFileSender settings) path part  
 
 sendRspFile404 :: HTTP.ResponseHeaders -> Java HttpServletResponse ()
 sendRspFile404 hdrs = sendRspBuilder HTTP.notFound404 hdrs' body
