@@ -9,6 +9,11 @@ jobs:
     - restore_cache:
         key: wai-servlet-etlas-v1200-cache-
 
+    - run:
+        name: Reset etlas repo
+        working_directory: ~/.etlas/patches 
+        command: git reset --hard
+        
     - run: etlas update
 
     - run: etlas install
