@@ -72,7 +72,7 @@ setFileSender x y = y { settingFileSender = x }
 getFileSender :: Settings -> FileSender
 getFileSender = settingFileSender
 
-defaultFileSender :: FilePath -> FilePart -> Java HttpServletResponse ()
+defaultFileSender :: FileSender
 defaultFileSender path (FilePart off len size) = do
   os <- getOutputStream
   let [off',len',size'] = map fromIntegral [off,len,size]
