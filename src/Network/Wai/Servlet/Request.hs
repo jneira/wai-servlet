@@ -33,6 +33,11 @@ import qualified Java.IO as JIO
 import Javax.Servlet
 import Network.Wai.Servlet.Settings
 
+#ifdef PURE_JAVA_WITH
+unsafePerformJavaWith :: (Class c) => c -> Java c a -> a
+unsafePerformJavaWith = pureJavaWith
+#endif
+
 foreign import java unsafe "@static network.wai.servlet.Utils.toByteArray"
    toByteArray :: (is <: JIO.InputStream) => is -> JByteArray
 foreign import java unsafe "@static network.wai.servlet.Utils.toByteBuffer"
@@ -70,12 +75,12 @@ makeWaiRequestSettings settings req = W.Request
         header name = fmap snd $ requestHeader req name
 
 requestMethod :: (a <: HttpServletRequest) => a -> H.Method
-requestMethod req = pureJavaWith req $ do
+requestMethod req = unsafePerformJavaWith req $ do
   method <- getMethod
   return $ BSChar.pack method
 
 httpVersion ::  (a <: ServletRequest) => a -> H.HttpVersion
-httpVersion req = pureJavaWith req $ do
+httpVersion req = unsafePerformJavaWith req $ do
   httpVer <- getProtocol
   return $ case httpVer of
     "HTTP/0.9" -> H.http09
@@ -88,7 +93,7 @@ encode UTF8 (Just str) =  BSUTF8.fromString str
 encode ISO88591 (Just str) = BSChar.pack str
 
 rawPathInfo :: (a <: HttpServletRequest) => CharEncoding -> a -> B.ByteString
-rawPathInfo enc req = pureJavaWith req $ do
+rawPathInfo enc req = unsafePerformJavaWith req $ do
   path <- getPathInfo
   case path of
     Nothing -> return B.empty
@@ -98,23 +103,23 @@ rawPathInfo enc req = pureJavaWith req $ do
         map (H.urlEncode False . encode enc . Just) segments
 
 pathInfo :: (a <: HttpServletRequest) => CharEncoding -> a -> B.ByteString
-pathInfo enc req = pureJavaWith req $ do
+pathInfo enc req = unsafePerformJavaWith req $ do
   path <- getPathInfo
   return $ encode enc path
 
 queryString :: (a <: HttpServletRequest) => CharEncoding -> a -> B.ByteString
-queryString enc req = pureJavaWith req $ do
+queryString enc req = unsafePerformJavaWith req $ do
   query <- getQueryString
   return $ encode enc query
 
 requestHeaders :: (a <: HttpServletRequest) => a -> H.RequestHeaders
-requestHeaders req = pureJavaWith req $ do
+requestHeaders req = unsafePerformJavaWith req $ do
   names <- getHeaderNames
   return $ catMaybes $ map (requestHeader req . fromJString) $
            fromJava  names
 
 requestHeader ::  (a <: HttpServletRequest) => a -> String -> Maybe H.Header
-requestHeader req name = pureJavaWith req $ do
+requestHeader req name = unsafePerformJavaWith req $ do
   mjhdrs <- getHeaders name
   return $ mjhdrs >>= f
   where f jhdrs = if null hdrs then Nothing else Just (hdrn,hdrs')
@@ -123,10 +128,10 @@ requestHeader req name = pureJavaWith req $ do
                 hdrn = CI.mk $ BSChar.pack name 
 
 isSecureRequest :: (a <: ServletRequest) => a -> Bool
-isSecureRequest req = pureJavaWith req $ isSecure
+isSecureRequest req = unsafePerformJavaWith req $ isSecure
 
 remoteHost :: (a <: ServletRequest) => a -> SockAddr
-remoteHost req = pureJavaWith req $ do
+remoteHost req = unsafePerformJavaWith req $ do
   ipStr <- getRemoteAddr
   portInt <- getRemotePort
   let ip = wordsWhen (=='.') ipStr
@@ -159,6 +164,6 @@ requestBody req = do
            else BSInt.fromForeignPtr fptr 0 l
 
 requestBodyLength :: (a <: ServletRequest) => a -> W.RequestBodyLength
-requestBodyLength req = pureJavaWith req $ do
+requestBodyLength req = unsafePerformJavaWith req $ do
   l <- getContentLength
   return $ W.KnownLength (fromIntegral $ if l < 0 then 0 else l)
