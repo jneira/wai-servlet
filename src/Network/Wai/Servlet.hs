@@ -50,5 +50,7 @@ foreign import java unsafe "@wrapper @abstract service"
    servlet :: GenericServletApplication -> GenericServlet
 
 makeServlet ::  Wai.Application -> GenericServlet
-makeServlet = servlet . makeServiceMethod
+makeServlet = makeServletSettings defaultSettings
 
+makeServletSettings :: Settings -> Wai.Application -> GenericServlet
+makeServletSettings ss = servlet . makeServiceMethodSettings ss
