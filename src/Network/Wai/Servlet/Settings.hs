@@ -46,8 +46,8 @@ readCharEncoding str =
     "ISO88591"   -> ISO88591 -- haskell
     "ISO-8859-1" -> ISO88591 -- java.nio
     "ISO8859_1"  -> ISO88591 -- java.io
-    "UTF8"      -> UTF8
-    "UTF-8"       -> UTF8
+    "UTF8"       -> UTF8
+    "UTF-8"      -> UTF8
     _            -> error $ "Bad input for CharEncoding: " ++ str
     
 settingsFromSysProps :: Java a Settings
