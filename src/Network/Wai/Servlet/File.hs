@@ -16,9 +16,9 @@ import Network.Wai
 import Numeric (showInt)
 import Java
 #ifdef INTEROP
-import Interop.Java.IO as JIO
+import qualified Interop.Java.IO as JIO
 #else
-import Java.IO as JIO
+import qualified Java.IO as JIO
 #endif
 
 -- Adapted from https://github.com/yesodweb/wai/blob/master/warp/Network/Wai/Handler/Warp/File.hs
@@ -31,16 +31,16 @@ data FileInfo = FileInfo {
   , fileInfoDate :: ByteString -- ^ Modification time in the GMT format
   } deriving (Eq, Show)
 
-foreign import java unsafe "@new" newFile  :: String -> Java a File
+foreign import java unsafe "@new" newFile  :: String -> Java a JIO.File
 
 getFileInfo :: FilePath -> IO FileInfo
 getFileInfo path =  java $ do
   file <- newFile path
   withObject file $ do 
-    regular <- fmap not isDirectory
-    readable <- canRead
+    regular <- fmap not JIO.isDirectory
+    readable <- JIO.canRead
     if (regular && readable) then do
-      lastMod <- lastModified
+      lastMod <- JIO.lastModified
       let epoch = fromIntegral $ lastMod `div` 1000
           time  = epochTimeToHTTPDate epoch
       size <- fmap fromIntegral $ JIO.length
@@ -50,7 +50,7 @@ getFileInfo path =  java $ do
                         , fileInfoTime = time
                         , fileInfoDate = date }
     else do
-      absolutePath <- file <.> getAbsolutePath
+      absolutePath <- file <.> JIO.getAbsolutePath
       io $ throwIO (userError $ "File:getInfo: " ++ absolutePath)
 
 deriving instance Eq FilePart
