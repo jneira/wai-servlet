@@ -26,3 +26,4 @@ workflows:
   full_cycle:
     jobs:
       - build
+      
