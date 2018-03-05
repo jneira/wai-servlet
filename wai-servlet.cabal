@@ -1,20 +1,21 @@
 name:                wai-servlet
-version:             0.1.4.0
--- synopsis:            
--- description:         
+version:             0.1.5.0
+description:         Integration of eta wai applications with the servlet api
 license:             BSD3
 license-file:        LICENSE
 author:              Javier Neira Sanchez
 maintainer:          Javier Neira Sanchez <atreyu.bbb@gmail.com>
--- copyright:           
+homepage:            https://github.com/jneira/wai-servlet
 category:            Web
 build-type:          Simple
--- extra-source-files:  
+extra-source-files:  README.md
 cabal-version:       >=1.10
+stability:           Experimental
+                     
 source-repository this
   type:              git
-  location:          https://github.com/jneira/wai-servlet 
-  tag:               0.1.4.0
+  location:          https://github.com/jneira/wai-servlet
+  tag:               0.1.5.0
 
 Flag wai-servlet-debug
     Description: print debug output. not suitable for production
@@ -42,7 +43,7 @@ library
   if impl(eta >= 0.0.9.7)
      build-depends:    eta-java-interop
      cpp-options:      -DINTEROP
-  if impl(eta < 0.7.0.2)
+  if impl(eta < 0.7.1)
      cpp-options:      -DPURE_JAVA_WITH
   hs-source-dirs:      src
   default-language:    Haskell2010
@@ -52,5 +53,5 @@ library
   else
     java-sources:      java/eta-0.0.6/Utils.java
   if flag(wai-servlet-debug)
-    cpp-options: -DWAI_SERVLET_DEBUG
+    cpp-options:       -DWAI_SERVLET_DEBUG
 
