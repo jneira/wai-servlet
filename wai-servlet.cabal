@@ -1,19 +1,19 @@
 name:                wai-servlet
-version:             0.1.4.0
--- synopsis:            
--- description:         
+version:             0.1.5.0
+description:         Integration of eta wai applications with the servlet api
 license:             BSD3
 license-file:        LICENSE
 author:              Javier Neira Sanchez
 maintainer:          Javier Neira Sanchez <atreyu.bbb@gmail.com>
--- copyright:           
+homepage:            https://github.com/jneira/wai-servlet
 category:            Web
 build-type:          Simple
--- extra-source-files:  
 cabal-version:       >=1.10
+stability:           Experimental
+                     
 source-repository this
   type:              git
-  location:          https://github.com/jneira/wai-servlet 
+  location:          https://github.com/jneira/wai-servlet
   tag:               0.1.5.0
 
 Flag wai-servlet-debug
