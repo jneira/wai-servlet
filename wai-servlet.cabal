@@ -8,6 +8,7 @@ maintainer:          Javier Neira Sanchez <atreyu.bbb@gmail.com>
 homepage:            https://github.com/jneira/wai-servlet
 category:            Web
 build-type:          Simple
+extra-source-files:  README.md
 cabal-version:       >=1.10
 stability:           Experimental
                      
