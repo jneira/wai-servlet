@@ -88,6 +88,7 @@ httpVersion req = doJavaWith req $ do
     "HTTP/0.9" -> H.http09
     "HTTP/1.0" -> H.http10
     "HTTP/1.1" -> H.http11
+    "HTTP/2.0" -> H.http20
 
 encode ::  CharEncoding -> Maybe String -> B.ByteString
 encode _ Nothing = B.empty
