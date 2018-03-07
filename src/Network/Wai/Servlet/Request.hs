@@ -77,7 +77,7 @@ makeWaiRequestSettings settings req = W.Request
         header name = fmap snd $ requestHeader req name
 
 requestMethod :: (a <: HttpServletRequest) => a -> H.Method
-requestMethod req = unsafePerformJavaWith req $ do
+requestMethod req = doJavaWith req $ do
   method <- getMethod
   return $ BSChar.pack method
 
