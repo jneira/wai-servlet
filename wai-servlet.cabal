@@ -33,7 +33,7 @@ library
   build-depends:       base >= 4.8 && < 4.9
                      , wai
                      , network
-                     , http-types
+                     , http-types >= 0.10
                      , http-date
                      , blaze-builder
                      , bytestring
