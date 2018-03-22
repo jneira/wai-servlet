@@ -43,7 +43,7 @@ library
   if impl(eta >= 0.0.9.7)
      build-depends:    eta-java-interop
      cpp-options:      -DINTEROP
-  if impl(eta <= 0.7.0.2)
+  if impl(eta < 0.7.0.2)
      cpp-options:      -DPURE_JAVA_WITH
   hs-source-dirs:      src
   default-language:    Haskell2010
