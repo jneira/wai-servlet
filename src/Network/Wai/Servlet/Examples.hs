@@ -4,18 +4,20 @@ import Java
 import Network.Wai
 import Network.HTTP.Types                 (status200)
 import Network.Wai.Servlet
---import Network.Wai.Handler.Warp (run)
 import Blaze.ByteString.Builder           (fromByteString)
 import Blaze.ByteString.Builder.Char.Utf8 (fromShow,fromString)
---import Control.Concurrent                 (threadDelay)
 import Control.Concurrent.MVar
 import Data.Monoid                        ((<>))
+import qualified Data.ByteString.Lazy.Char8 as BSL 
 import System.IO.Unsafe
 
 
+appSimpleStr :: String -> Application
+appSimpleStr str _ respond = respond $
+  responseLBS status200 [("Content-Type", "text/plain")] $ BSL.pack str
+
 appSimple :: Application
-appSimple _ respond = respond $
-   responseLBS status200 [("Content-Type", "text/plain")] "Hello World"
+appSimple = appSimpleStr "Hello World"
 
 appState :: MVar Integer -> Application
 appState countRef _ respond = do
@@ -77,13 +79,16 @@ appAll filePath req respond = case path of
   ["stream"]       -> appStream req respond
   ["static-file"]  -> appFile filePath req respond
   "request-info":_ -> appShowReq req respond
-  _                -> appSimple req respond
+  _                -> appSimpleStr ("Hello world from path: " ++ show path)
+                        req respond
   where path = pathInfo req
 
 servAll :: DefaultWaiServletApplication
 servAll = makeServiceMethod $ appAll "index.html"
 
-foreign export java "service" servAll :: DefaultWaiServletApplication
+-- To generate a servlet class with a wai application you should export
+-- the equivalent to servAll:
+-- foreign export java "service" servAll :: DefaultWaiServletApplication
 
 
 
