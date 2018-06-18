@@ -47,9 +47,9 @@ library
      cpp-options:      -DPURE_JAVA_WITH
   hs-source-dirs:      src
   default-language:    Haskell2010
-  -- maven-depends:       javax.servlet:servlet-api:2.5
+  maven-depends:       javax.servlet:servlet-api:2.5
   if impl(eta >= 0.0.9)
-    java-sources:      java/Utils.java, java/servlet-api-2.5.jar
+    java-sources:      java/Utils.java
   else
     java-sources:      java/eta-0.0.6/Utils.java
   if flag(wai-servlet-debug)
