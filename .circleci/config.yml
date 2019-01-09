@@ -7,14 +7,14 @@ jobs:
     - checkout
 
     - restore_cache:
-        key: wai-servlet-etlas-v1-cache-
+        key: wai-servlet-cache-v1-
 
     - run: etlas update
 
-    - run: etlas install --symlink-bindir=~/bin
+    - run: etlas build
 
     - save_cache:
-        key: wai-servlet-etlas-v1-cache-{{ epoch }}
+        key: wai-servlet-cache-v1-{{ epoch }}
         paths:
           - "~/.etlas/config"
           - "~/.etlas/packages"
