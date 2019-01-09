@@ -1,6 +1,6 @@
 # wai-servlet
 
-[![Build Status](https://circleci.com/gh/jneira/wai-servlet.svg?style=shield&circle-token=abb4f8f1c84e646a32df3143ae9ce5210eabadfa)](https://circleci.com/gh/jneira/wai-servlet)
+[![CircleCI](https://circleci.com/gh/eta-lang/wai-servlet.svg?style=svg)](https://circleci.com/gh/eta-lang/wai-servlet)
 
 Library to integrate [eta](http://eta-lang.org) [wai](https://github.com/yesodweb/wai) applications with the [servlet api](http://docs.oracle.com/javaee/7/api/javax/servlet/package-summary.html)
 
