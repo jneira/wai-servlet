@@ -1,33 +1,33 @@
-    let prelude = https://raw.githubusercontent.com/eta-lang/dhall-to-etlas/master/dhall/prelude.dhall
+let prelude = https://raw.githubusercontent.com/eta-lang/dhall-to-etlas/master/dhall/prelude.dhall
 
-in  let types = https://raw.githubusercontent.com/eta-lang/dhall-to-etlas/master/dhall/types.dhall
+let types = https://raw.githubusercontent.com/eta-lang/dhall-to-etlas/master/dhall/types.dhall
 
-in  let v = prelude.v
+let v = prelude.v
 
-in  let pkg =
+let pkg =
             λ(name : Text)
           → λ(version-range : types.VersionRange)
           → { bounds = version-range, package = name }
 
-in  let pkgAnyVer = λ(packageName : Text) → pkg packageName prelude.anyVersion
+let pkgAnyVer = λ(packageName : Text) → pkg packageName prelude.anyVersion
 
-in  let etaImpl =
+let etaImpl =
             λ(cfg : types.Config)
           → λ(ver : types.VersionRange)
-          → cfg.impl (prelude.types.Compilers.Eta {=}) ver
+          → cfg.impl (types.Compiler.Eta {=}) ver
 
-in  let updateRepo =
+let updateRepo =
           prelude.utils.mapSourceRepos
           (   λ(srcRepo : types.SourceRepo)
             →   srcRepo
               ⫽ { tag =
                     [ "0.1.5.1" ] : Optional Text
                 , kind =
-                    prelude.types.RepoKind.RepoThis {=}
+                    types.RepoKind.RepoThis {=}
                 }
           )
 
-in  let project =
+let project =
           prelude.utils.GitHub-project
           { owner = "jneira", repo = "wai-servlet" }
 
@@ -36,7 +36,7 @@ in  updateRepo
       ⫽ { description =
             "Integration of eta wai applications with the servlet api"
         , license =
-            prelude.types.Licenses.BSD3 {=}
+            types.License.BSD3 {=}
         , license-files =
             [ "LICENSE" ]
         , author =
@@ -64,8 +64,8 @@ in  updateRepo
                   "wai-servlet-debug"
               }
             ]
-        , library =
-            [   λ(config : types.Config)
+        , library =        
+            Some (   λ(config : types.Config)
               →   prelude.defaults.Library
                 ⫽ { exposed-modules =
                       [ "Network.Wai.Servlet", "Network.Wai.Servlet.Examples" ]
@@ -79,8 +79,7 @@ in  updateRepo
                   , hs-source-dirs =
                       [ "src" ]
                   , default-language =
-                      [ prelude.types.Languages.Haskell2010 {=}
-                      ] : Optional types.Language
+                      Some ( types.Languages.Haskell2010 {=} )
                   , build-depends =
                         [ pkg
                           "base"
@@ -98,12 +97,9 @@ in  updateRepo
                         , pkgAnyVer "hashable"
                         , pkgAnyVer "utf8-string"
                         ]
-                      # ( if etaImpl
-                                   config
-                                   (prelude.orLaterVersion (v "0.0.9.7"))
-                          
+                      # ( if etaImpl config
+                                      (prelude.orLaterVersion (v "0.0.9.7"))
                           then  [ pkgAnyVer "eta-java-interop" ]
-                          
                           else  [] : List types.Dependency
                         )
                   , maven-depends =
@@ -129,6 +125,6 @@ in  updateRepo
                           else  [] : List Text
                         )
                   }
-            ] : Optional (https://raw.githubusercontent.com/eta-lang/dhall-to-etlas/master/dhall/types/Guarded.dhall types.Library)
+            ) : Optional (https://raw.githubusercontent.com/eta-lang/dhall-to-etlas/master/dhall/types/Guarded.dhall types.Library)
         }
     )
